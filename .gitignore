@@ -1,0 +1,14 @@
+# Ambiente virtual
+.venv/
+
+# Configuração local e senhas
+.env
+
+# Arquivos gerados pelo Python e pelo pytest
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Arquivos do sistema e do editor
+Thumbs.db
+.vscode/
