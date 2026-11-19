@@ -1,0 +1,109 @@
+# CLAUDE.md: assistente-aed
+
+Contexto para o Claude Code trabalhar neste repositório. Leia inteiro antes de começar qualquer tarefa.
+
+## O projeto
+Assistente que responde dúvidas de iniciantes em **Algoritmos e Estruturas de Dados (AED)** usando RAG. As respostas vêm de notas em Markdown da pasta `corpus/`, baseadas nas dúvidas mais comuns em monitorias da disciplina.
+
+Fluxo:
+1. **Ingestão:** a nota é dividida em chunks (pedaços) pelas seções `##`.
+2. **Embeddings:** cada chunk vira um vetor.
+3. **Armazenamento:** os vetores são gravados no PostgreSQL com pgvector.
+4. **Busca:** a pergunta vira um vetor, e o banco devolve os chunks mais próximos.
+5. **Resposta:** o LLM recebe a pergunta e os trechos e responde citando a fonte.
+
+## Como trabalhar neste projeto
+- **Responda sempre em português.**
+- **Código simples e didático.** Cada parte do projeto precisa poder ser explicada com clareza. Por isso:
+  - Evite abstrações que o projeto não precisa.
+  - Explique as escolhas importantes (por que essa biblioteca, por que esse formato) em poucas linhas, depois de cada etapa.
+  - Avance em passos pequenos, fáceis de revisar.
+- **Nunca invente resultados nem métricas.** Só entram no README números que foram medidos rodando o código de verdade.
+- Antes de uma mudança grande ou difícil de desfazer, pergunte.
+
+## Ambiente
+- Windows 11 com PowerShell. A RAM é de 8 GB e é o recurso mais escasso. GPU NVIDIA com 6 GB de VRAM.
+- Python 3.12 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
+- **Postgres 16 + pgvector 0.8.7** no Docker Compose (serviço `db`, imagem `pgvector/pgvector:pg16`). Configuração vem do `.env`, e o modelo de variáveis está em `.env.example`.
+  - Subir: `docker compose up -d`. Parar: `docker compose down`.
+  - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco.
+  - O `sql/init.sql` só roda quando o volume está vazio.
+- **Ollama** roda direto no Windows, fora do Docker, para usar a GPU. Modelo: `qwen2.5:3b`, que roda 100% na GPU, com contexto de 4096 tokens. API em `http://localhost:11434`.
+- Durante o desenvolvimento, a API roda no venv. Ela só entra num container na etapa 9.
+- O CI (GitHub Actions) roda em Ubuntu.
+
+## Convenções de código
+- **Funcionar em Windows e Linux:**
+  - Caminhos com `pathlib`.
+  - Toda configuração vem de variáveis de ambiente, lidas com `pydantic-settings`. Nada de endereço, porta ou nome de modelo fixo no código.
+  - O `.gitattributes` mantém os arquivos em LF.
+- **Nomes de funções, variáveis e rotas em português**, como `gerar_resposta`, `POST /documentos` e `POST /perguntas`. Use type hints.
+- **O provedor do LLM fica atrás da interface `gerar_resposta(pergunta, contexto)`** (`app/geracao/base.py`). Ollama e Hugging Face são implementações dessa interface, e o provedor é escolhido pelo `.env`.
+- **Testes com pytest.** Os testes não podem baixar modelos nem depender do Ollama: use um embedder e um LLM falsos (fakes). Os testes de integração usam o Postgres (no CI, como service container).
+- **Dependências:** coloque em `requirements.txt` só o que for usado, com versões fixadas.
+- **Commits:** pequenos, com mensagem em português que diga o que mudou. Nunca versionar `.env` nem `.venv`.
+
+## Estrutura planejada
+```
+app/        main.py, config.py, db.py, schemas.py, chunking.py, embeddings.py, busca.py
+app/geracao/  base.py (interface), ollama.py, huggingface.py
+corpus/     notas .md
+avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
+sql/        init.sql
+tests/
+.github/workflows/testes.yml
+docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, README.md
+```
+
+## Corpus (`corpus/`)
+- Cerca de 25 notas, uma por dúvida comum de iniciantes.
+- **Linguagem:** a disciplina usava C++ e depois passou para C, então os exemplos são em C. As notas de `map` e `set` usam C++ (`std::map`, `std::set`), porque C não tem essas estruturas na biblioteca padrão.
+- **Formato de cada nota:**
+  - Arquivo `corpus/<nome-em-kebab-case>.md`, sem acentos no nome.
+  - Cabeçalho YAML com `titulo`, `linguagem` (`C` ou `C++`) e `topicos` (lista).
+  - Um título `#` e de 3 a 5 seções `##`.
+  - **Cada seção precisa fazer sentido sozinha**, com 60 a 200 palavras e uma ideia por seção. A busca devolve seções soltas, então não escreva "como vimos acima". Repita o assunto no título da seção, por exemplo "Por que o for que percorre um vetor começa em 0" em vez de "Por que começa em 0".
+  - **Exemplos de código curtos e corretos.** Compile os exemplos em C com `gcc -Wall` (e os de C++ com `g++`) antes de colocar na nota, quando houver compilador disponível. Se não houver, avise.
+- **Precisão técnica é prioridade.** Uma nota errada ensina o erro ao modelo. Cuidados conhecidos:
+  - Em C, a indentação não muda o funcionamento do programa, ao contrário de Python. A nota explica legibilidade e o erro do `if` sem chaves com duas linhas indentadas.
+  - O índice começa em 0 porque é o deslocamento a partir do início do vetor: `v[i]` é o mesmo que `*(v + i)`.
+  - Acesso fora dos limites é comportamento indefinido.
+- A nota-modelo é `corpus/indice-zero.md`: siga o mesmo formato.
+- **Toda nota passa por revisão manual antes do commit.** Entregue as notas em lotes pequenos para facilitar a revisão.
+- **Lista de notas:**
+  - Parte 1, básico de C: `if-else`, `switch-case`, `laco-for`, `laco-while`, `for-vs-while`, `indentacao-e-chaves`, `vetores`, `indice-zero`, `erros-com-vetores`, `strings`, `funcoes`, `ponteiros`, `matrizes`.
+  - Parte 2, estruturas e algoritmos: `alocacao-dinamica`, `lista-encadeada`, `pilha`, `fila`, `pilha-vs-fila`, `map` (C++), `set` (C++), `map-vs-set`, `busca-linear-e-binaria`, `ordenacao-simples`, `recursao`, `complexidade-big-o`.
+  - Os temas vizinhos (for × while, pilha × fila, map × set) estão na lista de propósito, para a busca ter concorrência.
+
+## Avaliação (`avaliacao/`): regras importantes
+- **As perguntas de avaliação serão feitas manualmente, não pelo Claude.**
+  - Não crie, complete nem reescreva `perguntas_rascunho.md` ou `perguntas.jsonl`.
+  - **Não leia a pasta `avaliacao/` enquanto escreve ou edita notas do corpus.** Se as notas forem escritas com o vocabulário das perguntas, a busca fica fácil e o recall@3 sai inflado.
+  - Se pedirem notas novas e o `avaliacao/perguntas_rascunho.md` ainda não existir, lembre que as perguntas devem ser escritas antes.
+- **Métrica principal: recall@3 da busca.** Cada pergunta é rotulada com a **nota e a seção** corretas, não com o id do chunk, porque os ids mudam quando muda o tamanho do chunk. Conta acerto quando algum dos 3 primeiros chunks vem da seção correta.
+- **Experimentos:** 2 modelos de embedding (por exemplo, `paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) × 2 ou 3 tamanhos de chunk. A tabela de resultados vai no README.
+- **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta será colocada manualmente em `avaliacao/baseline_sem_rag.md`, para comparar com a resposta com RAG no README.
+
+## Estilo das respostas do assistente
+As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
+- O prompt manda responder em poucas frases, com no máximo um exemplo curto de código, usando só os trechos recebidos e citando a fonte (nota e seção).
+- Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
+- No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
+
+## Roteiro (atualize os checkboxes ao concluir cada etapa)
+- [x] 1. Ambiente: Docker Compose com Postgres + pgvector, venv, Ollama testado.
+- [ ] 2. Corpus, parte 1: perguntas de rascunho (feitas manualmente) e depois as 13 notas de básico de C.
+- [ ] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
+- [ ] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
+- [ ] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
+- [ ] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
+- [ ] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
+- [ ] 8. Testes e CI: pytest com fakes e GitHub Actions.
+- [ ] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
+- [ ] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
+- [ ] 11. Experimentos: modelo de embedding × tamanho de chunk.
+- [ ] 12. README final (diagrama, prints, resultados, limitações, comparação com e sem RAG).
+
+## README
+- O README deve ser honesto sobre como o projeto foi feito. Por exemplo: "notas escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias".
+- Sem métricas que não foram medidas.
