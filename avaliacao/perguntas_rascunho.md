@@ -1,0 +1,25 @@
+- quando q eu uso else ou else if?
+- o que é && e || no if?
+- quando que eu uso o switch?
+- porque o ultimo case eu uso break?
+- pq o for começa no 0?
+- qual a diferença de usar i++ ou ++i no for?
+- o q acontece quando eu faço while(true)?
+- qual a diferença do while pro do while?
+- qual a diferença do while pro for?
+- quando q eu uso while e n for?
+- porque tenho que usar identação?
+- se eu tirar as chaves do if dá erro?
+- eu consigo aumentar o tamanho do vetor?
+- como eu faço a leitura dos valores em um vetor?
+- pq vetor começa em 0?
+- o q acontece se eu imprimir a posição -1 do vetor?
+- pq da problema quando eu acesso a posição n do vetor?
+- o que é esse \0 no final da string?
+- qual a diferenca entre " e '?
+- eu posso por minha função depois da main?
+- a minha função nao precisa voltar nada, eu deixo vazio o tipo?
+- o que é ponteiro?
+- o q é endereço de memoria? 
+- como eu acesso uma posição na matriz usando for?
+- como eu faço pra saber quantas linhas e colunas tem a matriz?
