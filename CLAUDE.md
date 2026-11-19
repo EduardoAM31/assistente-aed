@@ -92,7 +92,7 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 
 ## Roteiro (atualize os checkboxes ao concluir cada etapa)
 - [x] 1. Ambiente: Docker Compose com Postgres + pgvector, venv, Ollama testado.
-- [ ] 2. Corpus, parte 1: perguntas de rascunho (feitas manualmente) e depois as 13 notas de básico de C.
+- [x] 2. Corpus, parte 1: perguntas de rascunho (feitas manualmente) e depois as 13 notas de básico de C.
 - [ ] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
 - [ ] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
 - [ ] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
