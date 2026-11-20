@@ -45,7 +45,7 @@ Fluxo:
 
 ## Estrutura planejada
 ```
-app/        main.py, config.py, db.py, schemas.py, chunking.py, embeddings.py, busca.py
+app/        main.py, config.py, db.py, schemas.py, notas.py, chunking.py, embeddings.py, busca.py
 app/geracao/  base.py (interface), ollama.py, huggingface.py
 corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
@@ -89,6 +89,68 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - O prompt manda responder em poucas frases, com no máximo um exemplo curto de código, usando só os trechos recebidos e citando a fonte (nota e seção).
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
+
+## Etapa atual: 3 (API e banco)
+Objetivo: a API sobe, conecta no banco e recebe uma nota pelo `POST /documentos`, que salva o texto e os metadados. Embeddings e chunks ficam para as etapas 4 e 5.
+
+**Dependências** (`requirements.txt`, com as versões que forem instaladas, fixadas com `==`): `fastapi`, `uvicorn[standard]`, `python-multipart` (upload de arquivo), `psycopg[binary]` (psycopg 3), `pydantic-settings`, `pyyaml` (frontmatter), `pytest` e `httpx` (o `TestClient` do FastAPI usa o httpx).
+
+**Banco: acrescentar ao `sql/init.sql`**, mantendo o `CREATE EXTENSION`:
+```sql
+CREATE TABLE IF NOT EXISTS documentos (
+    id           SERIAL PRIMARY KEY,
+    nome_arquivo TEXT NOT NULL UNIQUE,
+    titulo       TEXT NOT NULL,
+    linguagem    TEXT NOT NULL,
+    conteudo     TEXT NOT NULL,
+    criado_em    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id           SERIAL PRIMARY KEY,
+    documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+    ordem        INTEGER NOT NULL,
+    secao        TEXT NOT NULL,
+    texto        TEXT NOT NULL,
+    embedding    vector(384),
+    UNIQUE (documento_id, ordem)
+);
+```
+- `secao` guarda o título da seção `##`, que é o rótulo usado na avaliação.
+- `ON DELETE CASCADE`: ao reenviar ou apagar uma nota, os chunks antigos saem junto.
+- `vector(384)` é a dimensão do `paraphrase-multilingual-MiniLM-L12-v2`. Se o modelo de embedding mudar na etapa 11, a dimensão muda junto.
+- O índice HNSW fica para a etapa 5. Com uns 100 chunks, a busca exata já é rápida.
+- **O volume do banco já existe, então o `init.sql` não roda sozinho de novo.** Aplique sem apagar nada (o script é idempotente por causa do `IF NOT EXISTS`), no PowerShell:
+  `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed`
+  O PowerShell não aceita `<` para redirecionar a entrada, por isso o `Get-Content` com pipe.
+
+**Configuração:** acrescentar `POSTGRES_HOST=localhost` ao `.env.example` (e ao `.env`). Na etapa 9, dentro do Docker, o valor passa a ser `db`. O `app/config.py` tem uma classe `Settings` (pydantic-settings) que lê o `.env` e monta a URL de conexão.
+
+**Arquivos da etapa:**
+- `app/__init__.py` (vazio).
+- `app/config.py`: `Settings` e uma instância única para o resto do código.
+- `app/db.py`: conexão com psycopg 3 e as funções de SQL. **SQL escrito à mão, sem ORM**: são duas tabelas, e o SQL explícito é mais fácil de explicar.
+- `app/notas.py`: `ler_nota(texto) -> (metadados, corpo)`, que separa e valida o frontmatter YAML. Exige `titulo` e `linguagem` (`C` ou `C++`), e levanta erro com mensagem clara se faltar algo.
+- `app/schemas.py`: modelos Pydantic das respostas (por exemplo, `DocumentoSaida` com `id`, `nome_arquivo`, `titulo`, `linguagem`).
+- `app/main.py` com as rotas:
+  - `GET /saude`: responde se a API está no ar e se o banco responde.
+  - `POST /documentos`: recebe um arquivo `.md` por upload (multipart). Valida a extensão, o UTF-8 e o frontmatter (erro 422 com mensagem clara se algo estiver errado). Grava em `documentos`. Se já existir uma nota com o mesmo `nome_arquivo`, atualiza em vez de duplicar (`INSERT ... ON CONFLICT (nome_arquivo) DO UPDATE`), porque as notas serão reenviadas várias vezes nos experimentos. Responde 201 quando cria e 200 quando atualiza.
+  - `GET /documentos`: lista as notas gravadas.
+- `tests/test_notas.py`: testes unitários do `ler_nota` (nota válida, sem frontmatter, sem `titulo`, `linguagem` inválida). Não dependem do banco. Os testes de integração das rotas ficam para a etapa 8.
+
+**Como rodar:** `uvicorn app.main:app --reload` e abrir `http://localhost:8000/docs` (Swagger), que permite testar o upload pelo navegador.
+
+**Pronto quando:**
+- [ ] `GET /saude` responde que o banco está ok.
+- [ ] O upload de `corpus/indice-zero.md` pelo `/docs` grava a nota, e enviar a mesma nota de novo atualiza em vez de duplicar.
+- [ ] Um arquivo sem frontmatter devolve 422 com mensagem clara.
+- [ ] `pytest` passa.
+- [ ] No banco, `SELECT id, nome_arquivo, titulo FROM documentos;` mostra a nota.
+
+Ao terminar, marque a etapa 3 no roteiro e troque esta seção pela etapa 4.
+
+## Observação para a etapa 10 (não altera as notas)
+Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora de rotular, elas recebem o rótulo "sem resposta no corpus" e ficam fora do cálculo do recall@3. Elas servem para testar se o assistente admite que não sabe, em vez de inventar. Não escreva notas novas para cobrir essas perguntas: decidir isso é uma escolha manual.
 
 ## Roteiro (atualize os checkboxes ao concluir cada etapa)
 - [x] 1. Ambiente: Docker Compose com Postgres + pgvector, venv, Ollama testado.
