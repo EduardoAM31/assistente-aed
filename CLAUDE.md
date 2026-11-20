@@ -23,7 +23,7 @@ Fluxo:
 
 ## Ambiente
 - Windows 11 com PowerShell. A RAM é de 8 GB e é o recurso mais escasso. GPU NVIDIA com 6 GB de VRAM.
-- Python 3.12 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
+- Python 3.14 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
 - **Postgres 16 + pgvector 0.8.7** no Docker Compose (serviço `db`, imagem `pgvector/pgvector:pg16`). Configuração vem do `.env`, e o modelo de variáveis está em `.env.example`.
   - Subir: `docker compose up -d`. Parar: `docker compose down`.
   - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco.
