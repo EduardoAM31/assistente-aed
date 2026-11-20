@@ -23,11 +23,13 @@ Fluxo:
 
 ## Ambiente
 - Windows 11 com PowerShell. A RAM é de 8 GB e é o recurso mais escasso. GPU NVIDIA com 6 GB de VRAM.
-- Python 3.12 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
+- Python 3.14 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
 - **Postgres 16 + pgvector 0.8.7** no Docker Compose (serviço `db`, imagem `pgvector/pgvector:pg16`). Configuração vem do `.env`, e o modelo de variáveis está em `.env.example`.
   - Subir: `docker compose up -d`. Parar: `docker compose down`.
   - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco.
-  - O `sql/init.sql` só roda quando o volume está vazio.
+  - O `sql/init.sql` só roda quando o volume está vazio. Como o volume já existe, mudanças no `init.sql` são aplicadas à mão, sem apagar nada (o script é idempotente por causa do `IF NOT EXISTS`): `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed`. O PowerShell não aceita `<` para redirecionar a entrada, por isso o `Get-Content` com pipe.
+  - **Porta 5433:** neste computador, um PostgreSQL 18 instalado no Windows (serviço `postgresql-x64-18`) já ocupa a porta 5432. Por isso o `.env` usa `POSTGRES_PORT=5433`, e o Compose publica o banco do Docker em `5433:5432`. O `.env.example` continua com 5432, o padrão.
+- **Smart App Control ligado:** o Windows bloqueia DLLs nativas sem reputação. Já aconteceu com o `psycopg[binary]` e com executáveis de teste do gcc (esses rodam no WSL). Ao instalar uma dependência com código nativo (como o `torch` na etapa 5), teste o `import` no venv logo em seguida.
 - **Ollama** roda direto no Windows, fora do Docker, para usar a GPU. Modelo: `qwen2.5:3b`, que roda 100% na GPU, com contexto de 4096 tokens. API em `http://localhost:11434`.
 - Durante o desenvolvimento, a API roda no venv. Ela só entra num container na etapa 9.
 - O CI (GitHub Actions) roda em Ubuntu.
@@ -39,13 +41,14 @@ Fluxo:
   - O `.gitattributes` mantém os arquivos em LF.
 - **Nomes de funções, variáveis e rotas em português**, como `gerar_resposta`, `POST /documentos` e `POST /perguntas`. Use type hints.
 - **O provedor do LLM fica atrás da interface `gerar_resposta(pergunta, contexto)`** (`app/geracao/base.py`). Ollama e Hugging Face são implementações dessa interface, e o provedor é escolhido pelo `.env`.
+- **Banco:** driver `pg8000`, escrito só em Python, porque o Smart App Control bloqueia as DLLs do `psycopg[binary]`. Usamos a interface `pg8000.native` (parâmetros nomeados, como `:nome_arquivo`) e **SQL escrito à mão, sem ORM**. O `pgvector` tem suporte ao pg8000.
 - **Testes com pytest.** Os testes não podem baixar modelos nem depender do Ollama: use um embedder e um LLM falsos (fakes). Os testes de integração usam o Postgres (no CI, como service container).
 - **Dependências:** coloque em `requirements.txt` só o que for usado, com versões fixadas.
 - **Commits:** pequenos, com mensagem em português que diga o que mudou. Nunca versionar `.env` nem `.venv`.
 
 ## Estrutura planejada
 ```
-app/        main.py, config.py, db.py, schemas.py, chunking.py, embeddings.py, busca.py
+app/        main.py, config.py, db.py, schemas.py, notas.py, chunking.py, embeddings.py, busca.py
 app/geracao/  base.py (interface), ollama.py, huggingface.py
 corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
@@ -90,10 +93,31 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
+## Etapa atual: 4 (chunking)
+Objetivo (do roteiro): dividir cada nota em chunks pelas seções `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
+
+**O que a etapa 3 deixou pronto:**
+- `app/notas.py`: `ler_nota(texto) -> (metadados, corpo)` separa e valida o frontmatter.
+- `documentos.conteudo` guarda o **corpo da nota sem o frontmatter**, e `documentos.titulo` guarda o título.
+- A tabela `chunks` já existe, com `ordem`, `secao` (o título da `##`, que é o rótulo da avaliação), `texto` e `embedding vector(384)`, ainda vazio.
+- `POST /documentos` grava com upsert por `nome_arquivo` e responde 201 quando cria e 200 quando atualiza. `GET /saude` e `GET /documentos` também funcionam.
+
+**Atenção:** no reenvio, o upsert mantém o mesmo `id` do documento, então o `ON DELETE CASCADE` **não** apaga os chunks antigos. Quando os chunks forem gravados, é preciso apagar os da nota antes de inserir os novos.
+
+**A decidir antes de começar:**
+- o tamanho máximo do chunk e o overlap, e se a unidade é palavras ou caracteres;
+- se o `POST /documentos` já grava os chunks nesta etapa ou se isso fica para a etapa 5, junto com os embeddings.
+
+## Observação para a etapa 9 (Docker)
+O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
+
+## Observação para a etapa 10 (não altera as notas)
+Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora de rotular, elas recebem o rótulo "sem resposta no corpus" e ficam fora do cálculo do recall@3. Elas servem para testar se o assistente admite que não sabe, em vez de inventar. Não escreva notas novas para cobrir essas perguntas: decidir isso é uma escolha manual.
+
 ## Roteiro (atualize os checkboxes ao concluir cada etapa)
 - [x] 1. Ambiente: Docker Compose com Postgres + pgvector, venv, Ollama testado.
 - [x] 2. Corpus, parte 1: perguntas de rascunho (feitas manualmente) e depois as 13 notas de básico de C.
-- [ ] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
+- [x] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
 - [ ] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
 - [ ] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
 - [ ] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
