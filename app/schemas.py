@@ -13,3 +13,4 @@ class DocumentoSaida(BaseModel):
     nome_arquivo: str
     titulo: str
     linguagem: str
+    quantidade_chunks: int
