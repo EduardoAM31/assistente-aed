@@ -18,5 +18,9 @@ class Settings(BaseSettings):
     postgres_host: str
     postgres_port: int
 
+    # Chunking (etapa 4). CHUNK_MAX_PALAVRAS=0 significa "sem limite".
+    chunk_max_palavras: int
+    chunk_overlap_palavras: int
+
 
 settings = Settings()
