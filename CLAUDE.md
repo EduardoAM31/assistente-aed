@@ -93,34 +93,26 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 4 (chunking)
-Objetivo (do roteiro): dividir cada nota em chunks pelas seções `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
+## Etapa atual: 5 (embeddings e busca)
+Objetivo (do roteiro): gerar o embedding de cada chunk, buscar os top-k chunks mais próximos da pergunta por distância de cosseno (`<=>`) e criar uma rota de depuração da busca.
 
-**O que a etapa 3 deixou pronto:**
-- `app/notas.py`: `ler_nota(texto) -> (metadados, corpo)` separa e valida o frontmatter.
-- `documentos.conteudo` guarda o **corpo da nota sem o frontmatter**, e `documentos.titulo` guarda o título.
-- A tabela `chunks` já existe, com `ordem`, `secao` (o título da `##`, que é o rótulo da avaliação), `texto` e `embedding vector(384)`, ainda vazio.
-- `POST /documentos` grava com upsert por `nome_arquivo` e responde 201 quando cria e 200 quando atualiza. `GET /saude` e `GET /documentos` também funcionam.
+**O que a etapa 4 deixou pronto:**
+- `app/chunking.py`: `dividir_em_chunks(corpo, titulo_nota, max_palavras, overlap_palavras) -> list[Chunk]`, uma função pura. `Chunk` tem `secao` e `texto`.
+- Cada `texto` começa com o prefixo `# <título da nota>\n## <título da seção>\n\n`. Quando uma seção é quebrada, as janelas são recortadas do texto original, então as quebras de linha dos exemplos de código são mantidas.
+- `CHUNK_MAX_PALAVRAS` e `CHUNK_OVERLAP_PALAVRAS` vêm do `.env` (hoje 150 e 25). O valor 0 significa "sem limite".
+- O `POST /documentos` grava os chunks na mesma transação do documento, apagando antes os chunks antigos da nota. A resposta e o `GET /documentos` mostram `quantidade_chunks`.
+- Medido nas 13 notas: **124 chunks com 80/15, 63 com 150/25 e 53 sem limite** (53 seções). Contando os exemplos de código, as seções têm de 110 a 167 palavras, e 10 delas passam de 150.
+- No banco hoje: 13 notas e 63 chunks (150/25), todos com `embedding` vazio.
 
-**Atenção:** no reenvio, o upsert mantém o mesmo `id` do documento, então o `ON DELETE CASCADE` **não** apaga os chunks antigos. Quando os chunks forem gravados, é preciso apagar os da nota antes de inserir os novos.
+**Para conferir nesta etapa:**
+- O limite de tokens do `paraphrase-multilingual-MiniLM-L12-v2`: rode `modelo.max_seq_length` e registre aqui o valor real. Não confie no número de 128 sem conferir.
+- O Smart App Control: teste o `import` do `torch` e do `sentence-transformers` no venv logo depois de instalar.
+- Para a etapa 11: o `multilingual-e5-small` espera os prefixos `query:` e `passage:` nos textos.
 
-**Decisões da etapa 4:**
-- **Unidade do tamanho: palavras.** É simples de explicar e não depende do tokenizador de cada modelo.
-- **Sempre cortar primeiro pelas seções `##`.** Uma seção que cabe no limite vira um chunk só.
-- **Limite máximo de palavras configurável**, lido do `.env` (por exemplo `CHUNK_MAX_PALAVRAS`), sem valor fixo no código. Valor 0 significa "sem limite": a seção inteira vira um chunk. O limite é a variável do experimento da etapa 11 (testar 3 valores, por exemplo 80, 150 e sem limite).
-- **Overlap:** de 15% a 20% do limite, também configurável (`CHUNK_OVERLAP_PALAVRAS`), aplicado só quando uma seção precisa ser quebrada. Seções que cabem inteiras não têm overlap.
-- **Todo chunk começa com o título da nota e o título da seção**, como no roteiro. Esse prefixo não conta no limite de palavras.
-- **Por que o limite importa:** o `paraphrase-multilingual-MiniLM-L12-v2` costuma cortar o texto em 128 tokens, e uma seção de 150 palavras em português passa disso. Na etapa 5, confirme o limite do modelo com `modelo.max_seq_length` e registre o valor real no CLAUDE.md. Não confie neste número sem conferir.
-- **Os chunks são gravados já na etapa 4**, dentro do `POST /documentos`: na mesma transação, apagar os chunks antigos da nota e inserir os novos (`secao` = título da `##`, `ordem` = posição, `texto` = chunk com o prefixo). A coluna `embedding` fica vazia até a etapa 5. Isso resolve o problema do reenvio, em que o upsert mantém o `id` e o `ON DELETE CASCADE` não apaga os chunks antigos.
-- **`chunking.py` deve ser uma função pura**, sem acesso ao banco, para ser testada sem o Postgres: recebe o corpo da nota, o título e os dois parâmetros, e devolve a lista de chunks (`secao`, `texto`).
-
-**Pronto quando:**
-- [ ] Testes unitários do `chunking.py`: seção curta vira 1 chunk; seção longa quebra com overlap; limite 0 não quebra nada; o prefixo com os títulos aparece em todo chunk; texto antes da primeira `##` não vira chunk; seção vazia não gera chunk.
-- [ ] Os 13 arquivos do corpus passam pelo chunker sem erro. Mostre quantos chunks saem em cada configuração (80, 150 e sem limite), medindo de verdade.
-- [ ] Enviar a mesma nota duas vezes não duplica nem deixa chunks antigos: confira com `SELECT documento_id, ordem, secao FROM chunks ORDER BY documento_id, ordem;`.
-- [ ] `pytest` passa.
-
-Ao terminar, marque a etapa 4 no roteiro e troque esta seção pela etapa 5.
+**A decidir antes de começar:**
+- se os embeddings são gerados dentro do `POST /documentos` ou numa rota/script separado;
+- se o modelo roda na CPU ou na GPU (RAM de 8 GB e VRAM de 6 GB, dividida com o Ollama);
+- o valor padrão de k e o formato da rota de depuração da busca.
 
 ## Observação para a etapa 9 (Docker)
 O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
@@ -132,7 +124,7 @@ Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora
 - [x] 1. Ambiente: Docker Compose com Postgres + pgvector, venv, Ollama testado.
 - [x] 2. Corpus, parte 1: perguntas de rascunho (feitas manualmente) e depois as 13 notas de básico de C.
 - [x] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
-- [ ] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
+- [x] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
 - [ ] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
 - [ ] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
 - [ ] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
