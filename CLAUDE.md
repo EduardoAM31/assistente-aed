@@ -85,6 +85,7 @@ docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, 
   - Se pedirem notas novas e o `avaliacao/perguntas_rascunho.md` ainda não existir, lembre que as perguntas devem ser escritas antes.
 - **Métrica principal: recall@3 da busca.** Cada pergunta é rotulada com a **nota e a seção** corretas, não com o id do chunk, porque os ids mudam quando muda o tamanho do chunk. Conta acerto quando algum dos 3 primeiros chunks vem da seção correta.
 - **Experimentos:** 2 modelos de embedding (por exemplo, `paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) × 2 ou 3 tamanhos de chunk. A tabela de resultados vai no README.
+- **Prefixos dos modelos de embedding:** o `multilingual-e5-small` exige `passage: ` no começo de cada chunk e `query: ` no começo de cada pergunta. O `paraphrase-multilingual-MiniLM-L12-v2` não usa prefixo. Esses prefixos e o prefixo com os títulos que o chunking coloca em todo chunk (`# <nota>` e `## <seção>`) contam no limite de tokens do modelo, mesmo não contando no limite de palavras do chunking.
 - **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta será colocada manualmente em `avaliacao/baseline_sem_rag.md`, para comparar com a resposta com RAG no README.
 
 ## Estilo das respostas do assistente
@@ -101,8 +102,10 @@ Objetivo (do roteiro): gerar o embedding de cada chunk, buscar os top-k chunks m
 - Cada `texto` começa com o prefixo `# <título da nota>\n## <título da seção>\n\n`. Quando uma seção é quebrada, as janelas são recortadas do texto original, então as quebras de linha dos exemplos de código são mantidas.
 - `CHUNK_MAX_PALAVRAS` e `CHUNK_OVERLAP_PALAVRAS` vêm do `.env` (hoje 150 e 25). O valor 0 significa "sem limite".
 - O `POST /documentos` grava os chunks na mesma transação do documento, apagando antes os chunks antigos da nota. A resposta e o `GET /documentos` mostram `quantidade_chunks`.
-- Medido nas 13 notas: **124 chunks com 80/15, 63 com 150/25 e 53 sem limite** (53 seções). Contando os exemplos de código, as seções têm de 110 a 167 palavras, e 10 delas passam de 150.
-- No banco hoje: 13 notas e 63 chunks (150/25), todos com `embedding` vazio.
+- Quando a última janela de uma seção traria no máximo `overlap_palavras` palavras novas, a janela anterior é estendida até o fim da seção. Por isso um chunk pode ter até `max_palavras + overlap_palavras` palavras (sem contar o prefixo).
+- Medido nas 13 notas: **110 chunks com 80/15, 53 com 150/25 e 53 sem limite** (53 seções). Contando os exemplos de código, as seções têm de 110 a 167 palavras. O maior chunk tem 93 palavras com 80/15 e 167 com 150/25.
+- **Atenção para a etapa 11:** neste corpus, **150/25 gera exatamente os mesmos chunks que "sem limite"**. A maior seção tem 167 palavras, menos que 150 + 25, então toda seção acima de 150 é estendida em vez de quebrada. Para o experimento ter 3 configurações diferentes, o limite do meio precisa ser menor (por exemplo, 120/20). Essa escolha é manual.
+- No banco hoje: 13 notas e 63 chunks, gravados com a regra antiga, sem a extensão da última janela. Reenvie as notas para ficar com os 53 da regra atual. Todos os chunks estão com `embedding` vazio.
 
 **Para conferir nesta etapa:**
 - O limite de tokens do `paraphrase-multilingual-MiniLM-L12-v2`: rode `modelo.max_seq_length` e registre aqui o valor real. Não confie no número de 128 sem conferir.
