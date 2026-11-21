@@ -45,6 +45,24 @@ def test_secao_longa_quebra_com_overlap():
     assert all(c.secao == "Seção A" for c in chunks)
 
 
+def test_ultima_janela_com_poucas_palavras_novas_estende_a_anterior():
+    # 12 palavras, max 10, overlap 2: a segunda janela seria p9-p12, com só 2
+    # palavras novas (p11 e p12). Em vez disso, a primeira vai até p12.
+    chunks = dividir_em_chunks(corpo_com_secao(palavras(12)), TITULO, 10, 2)
+
+    assert [sem_prefixo(c.texto) for c in chunks] == [palavras(12)]
+
+
+def test_ultima_janela_com_mais_palavras_novas_que_o_overlap_e_mantida():
+    # 13 palavras, max 10, overlap 2: a segunda janela (p9-p13) traz 3 palavras novas.
+    chunks = dividir_em_chunks(corpo_com_secao(palavras(13)), TITULO, 10, 2)
+
+    assert [sem_prefixo(c.texto) for c in chunks] == [
+        palavras(10, inicio=1),
+        palavras(5, inicio=9),
+    ]
+
+
 def test_secao_do_tamanho_exato_do_limite_nao_quebra():
     chunks = dividir_em_chunks(corpo_com_secao(palavras(10)), TITULO, 10, 2)
 

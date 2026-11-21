@@ -6,7 +6,10 @@ Regras (decididas na etapa 4):
 2. Uma seção que cabe no limite de palavras vira um chunk só, sem overlap.
 3. Uma seção maior que o limite é quebrada em janelas de até max_palavras.
    Cada janela repete as últimas overlap_palavras da anterior, para uma ideia
-   que fica na fronteira entre dois chunks não se perder.
+   que fica na fronteira entre dois chunks não se perder. Se a última janela
+   traria no máximo overlap_palavras palavras novas, a janela anterior é
+   estendida até o fim da seção (e pode passar de max_palavras em até
+   overlap_palavras palavras).
 4. max_palavras = 0 significa "sem limite": cada seção vira um chunk.
 5. Todo chunk começa com o título da nota e o da seção. Esse prefixo não
    conta no limite de palavras.
@@ -58,6 +61,10 @@ def quebrar_texto(texto: str, max_palavras: int, overlap_palavras: int) -> list[
     inicio = 0
     while True:
         fim = min(inicio + max_palavras, len(palavras))
+        # Se sobram no máximo overlap_palavras palavras depois desta janela, a próxima
+        # seria quase só repetição. Então esta janela vai até o fim da seção.
+        if len(palavras) - fim <= overlap_palavras:
+            fim = len(palavras)
         janelas.append(texto[palavras[inicio].start() : palavras[fim - 1].end()])
         if fim == len(palavras):
             break
