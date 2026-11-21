@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Response, UploadFile, status
 
 from app import db
+from app.chunking import dividir_em_chunks
+from app.config import settings
 from app.notas import NotaInvalida, ler_nota
 from app.schemas import DocumentoSaida, SaudeSaida
 
@@ -26,7 +28,7 @@ def saude(response: Response) -> SaudeSaida:
     status_code=status.HTTP_201_CREATED,
 )
 def enviar_documento(arquivo: UploadFile, response: Response) -> dict:
-    """Recebe uma nota .md e grava no banco.
+    """Recebe uma nota .md, divide em chunks e grava tudo no banco.
 
     Responde 201 quando a nota é nova e 200 quando atualiza uma nota com o mesmo nome.
     """
@@ -50,8 +52,19 @@ def enviar_documento(arquivo: UploadFile, response: Response) -> dict:
     except NotaInvalida as erro:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(erro))
 
+    try:
+        chunks = dividir_em_chunks(
+            corpo,
+            metadados["titulo"],
+            settings.chunk_max_palavras,
+            settings.chunk_overlap_palavras,
+        )
+    except ValueError as erro:
+        # Parâmetros de chunking errados no .env são erro de configuração do servidor.
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
+
     documento, criado = db.salvar_documento(
-        nome_arquivo, metadados["titulo"], metadados["linguagem"], corpo
+        nome_arquivo, metadados["titulo"], metadados["linguagem"], corpo, chunks
     )
     if not criado:
         response.status_code = status.HTTP_200_OK
