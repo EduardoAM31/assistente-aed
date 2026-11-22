@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Response, UploadFile, status
+from fastapi import FastAPI, HTTPException, Query, Response, UploadFile, status
 
-from app import db
+from app import busca, db
 from app.chunking import dividir_em_chunks
 from app.config import settings
 from app.notas import NotaInvalida, ler_nota
-from app.schemas import DocumentoSaida, SaudeSaida
+from app.schemas import DocumentoSaida, EmbeddingsSaida, ResultadoBusca, SaudeSaida
 
 app = FastAPI(title="Assistente AED")
 
@@ -75,3 +75,35 @@ def enviar_documento(arquivo: UploadFile, response: Response) -> dict:
 def listar_documentos() -> list[dict]:
     """Lista as notas gravadas no banco."""
     return db.listar_documentos()
+
+
+@app.post("/embeddings", response_model=EmbeddingsSaida)
+def gerar_embeddings(refazer: bool = False) -> EmbeddingsSaida:
+    """Calcula os vetores dos chunks que estão sem embedding.
+
+    Com refazer=true, recalcula todos. Use isso ao trocar o modelo no .env, para não
+    misturar vetores de modelos diferentes. Reenviar uma nota apaga os vetores dela,
+    então esta rota precisa rodar de novo depois do reenvio.
+    """
+    try:
+        gerados = busca.gerar_embeddings_dos_chunks(refazer)
+    except ValueError as erro:
+        # Por exemplo, um modelo no .env com dimensão diferente de 384.
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
+    return EmbeddingsSaida(modelo=settings.embedding_modelo, gerados=gerados)
+
+
+@app.get("/busca", response_model=list[ResultadoBusca])
+def buscar(
+    pergunta: str = Query(min_length=1),
+    k: int | None = Query(default=None, ge=1),
+) -> list[dict]:
+    """Rota de depuração: mostra os k chunks mais próximos da pergunta.
+
+    distancia é a distância de cosseno do pgvector (0 é igual; quanto maior, mais
+    longe). Sem k, usa o BUSCA_K do .env.
+    """
+    try:
+        return busca.buscar(pergunta, k or settings.busca_k)
+    except ValueError as erro:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
