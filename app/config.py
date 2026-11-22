@@ -22,5 +22,12 @@ class Settings(BaseSettings):
     chunk_max_palavras: int
     chunk_overlap_palavras: int
 
+    # Embeddings e busca (etapa 5). Os prefixos podem ficar vazios (MiniLM).
+    embedding_modelo: str
+    embedding_prefixo_documento: str
+    embedding_prefixo_pergunta: str
+    embedding_dispositivo: str
+    busca_k: int
+
 
 settings = Settings()
