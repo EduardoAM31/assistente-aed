@@ -100,6 +100,55 @@ def salvar_documento(
     return documento, not existente
 
 
+def listar_chunks_para_embedding(refazer: bool) -> list[dict]:
+    """Chunks que precisam de vetor: os sem embedding, ou todos se refazer=True."""
+    filtro = "" if refazer else "WHERE embedding IS NULL"
+    with conectar() as conexao:
+        linhas = conexao.run(f"SELECT id, texto FROM chunks {filtro} ORDER BY id")
+        return _como_dicionarios(conexao, linhas)
+
+
+def gravar_embeddings(vetores_por_chunk: list[tuple[int, str]]) -> None:
+    """Grava os vetores, cada um no formato de texto '[0.1,0.2,...]', numa transação só."""
+    with conectar() as conexao:
+        conexao.run("START TRANSACTION")
+        try:
+            for chunk_id, vetor in vetores_por_chunk:
+                # CAST(... AS vector): o pgvector converte o texto em vetor.
+                conexao.run(
+                    "UPDATE chunks SET embedding = CAST(:vetor AS vector) WHERE id = :id",
+                    vetor=vetor,
+                    id=chunk_id,
+                )
+            conexao.run("COMMIT")
+        except Exception:
+            conexao.run("ROLLBACK")
+            raise
+
+
+def buscar_chunks(vetor: str, k: int) -> list[dict]:
+    """Os k chunks mais próximos do vetor, do mais perto para o mais longe.
+
+    <=> é a distância de cosseno do pgvector: 0 quando os vetores apontam na mesma
+    direção, e maior quanto mais diferentes eles são (no máximo 2).
+    """
+    with conectar() as conexao:
+        linhas = conexao.run(
+            """
+            SELECT d.nome_arquivo, d.titulo, c.secao, c.texto,
+                   c.embedding <=> CAST(:vetor AS vector) AS distancia
+            FROM chunks c
+            JOIN documentos d ON d.id = c.documento_id
+            WHERE c.embedding IS NOT NULL
+            ORDER BY distancia
+            LIMIT :k
+            """,
+            vetor=vetor,
+            k=k,
+        )
+        return _como_dicionarios(conexao, linhas)
+
+
 def listar_documentos() -> list[dict]:
     """Lista as notas gravadas, em ordem de nome de arquivo, com o número de chunks."""
     with conectar() as conexao:

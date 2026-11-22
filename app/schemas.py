@@ -14,3 +14,16 @@ class DocumentoSaida(BaseModel):
     titulo: str
     linguagem: str
     quantidade_chunks: int
+
+
+class EmbeddingsSaida(BaseModel):
+    modelo: str
+    gerados: int
+
+
+class ResultadoBusca(BaseModel):
+    nome_arquivo: str
+    titulo: str
+    secao: str
+    distancia: float  # distância de cosseno: 0 é igual, quanto maior, mais longe
+    texto: str
