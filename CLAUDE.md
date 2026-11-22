@@ -29,7 +29,7 @@ Fluxo:
   - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco.
   - O `sql/init.sql` só roda quando o volume está vazio. Como o volume já existe, mudanças no `init.sql` são aplicadas à mão, sem apagar nada (o script é idempotente por causa do `IF NOT EXISTS`): `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed`. O PowerShell não aceita `<` para redirecionar a entrada, por isso o `Get-Content` com pipe.
   - **Porta 5433:** neste computador, um PostgreSQL 18 instalado no Windows (serviço `postgresql-x64-18`) já ocupa a porta 5432. Por isso o `.env` usa `POSTGRES_PORT=5433`, e o Compose publica o banco do Docker em `5433:5432`. O `.env.example` continua com 5432, o padrão.
-- **Smart App Control ligado:** o Windows bloqueia DLLs nativas sem reputação. Já aconteceu com o `psycopg[binary]` e com executáveis de teste do gcc (esses rodam no WSL). Ao instalar uma dependência com código nativo (como o `torch` na etapa 5), teste o `import` no venv logo em seguida.
+- **Smart App Control ligado:** o Windows bloqueia DLLs nativas sem reputação. Já aconteceu com o `psycopg[binary]` e com executáveis de teste do gcc (esses rodam no WSL). Ao instalar uma dependência com código nativo, teste o `import` no venv logo em seguida. Na etapa 5, `torch` 2.15.0 (CPU) e `sentence-transformers` 6.3.0 foram instalados no venv (Python 3.14.0) e importam normalmente.
 - **Ollama** roda direto no Windows, fora do Docker, para usar a GPU. Modelo: `qwen2.5:3b`, que roda 100% na GPU, com contexto de 4096 tokens. API em `http://localhost:11434`.
 - Durante o desenvolvimento, a API roda no venv. Ela só entra num container na etapa 9.
 - O CI (GitHub Actions) roda em Ubuntu.
@@ -84,8 +84,9 @@ docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, 
   - **Não leia a pasta `avaliacao/` enquanto escreve ou edita notas do corpus.** Se as notas forem escritas com o vocabulário das perguntas, a busca fica fácil e o recall@3 sai inflado.
   - Se pedirem notas novas e o `avaliacao/perguntas_rascunho.md` ainda não existir, lembre que as perguntas devem ser escritas antes.
 - **Métrica principal: recall@3 da busca.** Cada pergunta é rotulada com a **nota e a seção** corretas, não com o id do chunk, porque os ids mudam quando muda o tamanho do chunk. Conta acerto quando algum dos 3 primeiros chunks vem da seção correta.
-- **Experimentos:** 2 modelos de embedding (por exemplo, `paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) × 2 ou 3 tamanhos de chunk. A tabela de resultados vai no README.
+- **Experimentos:** 2 modelos de embedding (`paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) × 3 tamanhos de chunk (máximo de palavras/overlap): **40/8, 60/10 e sem limite**. A tabela de resultados vai no README, com a porcentagem de chunks cortados pelo limite de tokens em cada combinação. Os tamanhos foram escolhidos com a contagem de tokens da etapa 5, feita só nas 13 notas da parte 1. Depois da parte 2 do corpus (etapa 7), refaça a contagem, e outras configurações podem ser testadas. A escolha final é manual.
 - **Prefixos dos modelos de embedding:** o `multilingual-e5-small` exige `passage: ` no começo de cada chunk e `query: ` no começo de cada pergunta. O `paraphrase-multilingual-MiniLM-L12-v2` não usa prefixo. Esses prefixos e o prefixo com os títulos que o chunking coloca em todo chunk (`# <nota>` e `## <seção>`) contam no limite de tokens do modelo, mesmo não contando no limite de palavras do chunking.
+- **Limites de tokens (medidos):** o MiniLM tem `max_seq_length` = 128 e o e5-small tem 512. Texto além do limite é ignorado no cálculo do vetor, sem erro. Só o vetor é afetado: o texto do chunk continua inteiro no banco e vai inteiro para o LLM.
 - **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta será colocada manualmente em `avaliacao/baseline_sem_rag.md`, para comparar com a resposta com RAG no README.
 
 ## Estilo das respostas do assistente
@@ -100,25 +101,61 @@ Objetivo (do roteiro): gerar o embedding de cada chunk, buscar os top-k chunks m
 **O que a etapa 4 deixou pronto:**
 - `app/chunking.py`: `dividir_em_chunks(corpo, titulo_nota, max_palavras, overlap_palavras) -> list[Chunk]`, uma função pura. `Chunk` tem `secao` e `texto`.
 - Cada `texto` começa com o prefixo `# <título da nota>\n## <título da seção>\n\n`. Quando uma seção é quebrada, as janelas são recortadas do texto original, então as quebras de linha dos exemplos de código são mantidas.
-- `CHUNK_MAX_PALAVRAS` e `CHUNK_OVERLAP_PALAVRAS` vêm do `.env` (hoje 150 e 25). O valor 0 significa "sem limite".
-- O `POST /documentos` grava os chunks na mesma transação do documento, apagando antes os chunks antigos da nota. A resposta e o `GET /documentos` mostram `quantidade_chunks`.
+- `CHUNK_MAX_PALAVRAS` e `CHUNK_OVERLAP_PALAVRAS` vêm do `.env`. O valor 0 significa "sem limite".
+- O `POST /documentos` grava os chunks na mesma transação do documento, apagando antes os chunks antigos da nota (o novo chunk entra com `embedding` vazio). A resposta e o `GET /documentos` mostram `quantidade_chunks`.
 - Quando a última janela de uma seção traria no máximo `overlap_palavras` palavras novas, a janela anterior é estendida até o fim da seção. Por isso um chunk pode ter até `max_palavras + overlap_palavras` palavras (sem contar o prefixo).
-- Medido nas 13 notas: **110 chunks com 80/15, 53 com 150/25 e 53 sem limite** (53 seções). Contando os exemplos de código, as seções têm de 110 a 167 palavras. O maior chunk tem 93 palavras com 80/15 e 167 com 150/25.
-- **Atenção para a etapa 11:** neste corpus, **150/25 gera exatamente os mesmos chunks que "sem limite"**. A maior seção tem 167 palavras, menos que 150 + 25, então toda seção acima de 150 é estendida em vez de quebrada. Para o experimento ter 3 configurações diferentes, o limite do meio precisa ser menor (por exemplo, 120/20). Essa escolha é manual.
-- No banco hoje: 13 notas e 63 chunks, gravados com a regra antiga, sem a extensão da última janela. Reenvie as notas para ficar com os 53 da regra atual. Todos os chunks estão com `embedding` vazio.
+- No banco hoje: 13 notas e 63 chunks, gravados com a regra antiga, todos com `embedding` vazio.
 
-**Para conferir nesta etapa:**
-- O limite de tokens do `paraphrase-multilingual-MiniLM-L12-v2`: rode `modelo.max_seq_length` e registre aqui o valor real. Não confie no número de 128 sem conferir.
-- O Smart App Control: teste o `import` do `torch` e do `sentence-transformers` no venv logo depois de instalar.
-- Para a etapa 11: o `multilingual-e5-small` espera os prefixos `query:` e `passage:` nos textos.
+**Decisões já tomadas (manuais):**
+- **Chunking padrão: 60/10.** O primeiro passo da etapa é trocar `CHUNK_MAX_PALAVRAS=60` e `CHUNK_OVERLAP_PALAVRAS=10` no `.env.example` e no `.env` (antes era 150/25, que neste corpus gera os mesmos chunks de "sem limite"). Reinicie a API (o `.env` só é lido na partida) e reenvie as 13 notas: devem ficar **155 chunks**.
+- **Experimento da etapa 11:** 2 modelos × 40/8, 60/10 e sem limite. Mais para frente serão testadas outras opções, principalmente depois da parte 2 do corpus.
+- **O modelo de embedding e os prefixos vêm do `.env`**, sem nome de modelo fixo no código: `EMBEDDING_MODELO` (padrão `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`), `EMBEDDING_PREFIXO_DOCUMENTO` e `EMBEDDING_PREFIXO_PERGUNTA` (vazios para o MiniLM; `passage: ` e `query: ` para o `intfloat/multilingual-e5-small`). Trocar de modelo na etapa 11 é só mudar o `.env`.
 
-**A decidir antes de começar:**
-- se os embeddings são gerados dentro do `POST /documentos` ou numa rota/script separado;
-- se o modelo roda na CPU ou na GPU (RAM de 8 GB e VRAM de 6 GB, dividida com o Ollama);
-- o valor padrão de k e o formato da rota de depuração da busca.
+**Medido nesta etapa (rodando o código, sobre as 13 notas):**
+- Chunks: 230 com 40/8, 155 com 60/10 e 53 sem limite (também medidos: 110 com 80/15, 103 com 100/15, 79 com 120/20 e 53 com 150/25).
+- Tokens por chunk (o chunk inclui o prefixo `# nota` / `## seção`; no e5, também `passage: `):
+
+| Config | Chunks | MiniLM: mediana / máx. / acima de 128 | e5-small: mediana / máx. / acima de 512 |
+|---|---|---|---|
+| 40/8 | 230 | 88 / 141 / 3 (1%) | 90 / 143 / 0 |
+| 60/10 | 155 | 118 / 179 / 54 (35%) | 120 / 181 / 0 |
+| sem limite | 53 | 262 / 321 / 53 (100%) | 264 / 323 / 0 |
+
+- O `max_seq_length` do MiniLM conferido no modelo carregado é 128, e a dimensão é 384 (a mesma de `vector(384)`). O e5-small tem limite de 512 (medido) e dimensão 384 (pela ficha do modelo; confira ao carregá-lo), então a coluna `embedding` deve servir para os dois.
+- Os números vieram do `contar_tokens.py`, um script temporário que está na raiz do projeto e **não está versionado**. Como esses números vão para o README, ao fim da etapa pergunte se ele deve ser versionado como `scripts/contar_tokens.py` (e acrescentado à estrutura planejada), para a medição poder ser repetida depois da parte 2 do corpus.
+
+**Padrões sugeridos (confirme antes de implementar):**
+- **Embeddings fora do `POST /documentos`.** O upload não carrega torch nem o modelo. Uma rota separada, `POST /embeddings`, calcula os vetores dos chunks que estão com `embedding` vazio e devolve quantos foram gerados. Com `?refazer=true` ela recalcula todos, o que é necessário ao trocar de modelo. Reenviar uma nota apaga os vetores dos chunks dela, então a rota precisa rodar de novo.
+- **CPU** (`EMBEDDING_DISPOSITIVO=cpu` no `.env`). O modelo é pequeno e a VRAM de 6 GB fica para o Ollama. Carregue o modelo só na primeira chamada, uma vez, e reaproveite: a RAM é de 8 GB e `/saude` e `POST /documentos` não devem pagar esse custo.
+- **k = 3** por padrão (o mesmo do recall@3), configurável por `BUSCA_K` no `.env` e por parâmetro na rota.
+- **Rota de depuração:** `GET /busca?pergunta=...&k=3`, devolvendo, para cada chunk, `nome_arquivo`, `titulo`, `secao`, `distancia` e `texto`. Mostre a distância (0 é igual; quanto maior, mais longe), não uma "similaridade" inventada.
+- **Vetor no pg8000 sem dependência extra:** envie o vetor como texto `[0.1,0.2,...]` e use `CAST(:vetor AS vector)` no SQL. O operador é `<=>` (cosseno), então não é preciso normalizar os vetores. O índice HNSW continua fora desta etapa.
+
+**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
+1. Trocar o chunking padrão para 60/10 e acrescentar ao `.env.example` e ao `.env` as variáveis novas, lidas em `app/config.py`.
+2. `app/embeddings.py`: carrega o modelo uma vez, aplica os prefixos do `.env` e confere que a dimensão do modelo é 384 (erro claro se não for). Use `get_embedding_dimension()`, porque `get_sentence_embedding_dimension()` está obsoleto na versão instalada. As funções precisam aceitar um modelo falso nos testes.
+3. Funções de SQL em `app/db.py`: listar chunks sem embedding, gravar embeddings e buscar os k chunks mais próximos.
+4. `POST /embeddings`.
+5. `app/busca.py` e `GET /busca`, com os schemas em `app/schemas.py`.
+6. Testes unitários com modelo falso (prefixos aplicados, formato do vetor, erro de dimensão). Nenhum teste baixa modelo. Os testes de integração das rotas ficam para a etapa 8.
+7. `requirements.txt`: acrescente `sentence-transformers==6.3.0` e `torch==2.15.0` (sem o `+cpu`; transformers e numpy vêm como dependências e não são usados diretamente).
+
+Os testes manuais da busca são feitos no `/docs` com perguntas escolhidas à mão. Não é preciso ler a pasta `avaliacao/` nesta etapa.
+
+**Pronto quando:**
+- [ ] O chunking padrão é 60/10 e, depois de reenviar as 13 notas, `SELECT count(*) FROM chunks;` mostra 155.
+- [ ] `POST /embeddings` gera os vetores, e `SELECT count(*) FROM chunks WHERE embedding IS NULL;` mostra 0.
+- [ ] `GET /busca?pergunta=...` devolve 3 chunks com nota, seção, distância e texto, ordenados do mais perto para o mais longe.
+- [ ] Trocar `EMBEDDING_MODELO` e os prefixos no `.env` e rodar `POST /embeddings?refazer=true` funciona com o `intfloat/multilingual-e5-small` (a dimensão também é 384).
+- [ ] `pytest` passa sem baixar nenhum modelo.
+
+Ao terminar, marque a etapa 5 no roteiro e troque esta seção pela etapa 6.
 
 ## Observação para a etapa 9 (Docker)
 O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
+
+## Observação para as etapas 8 e 9 (torch)
+No `requirements.txt` fica `torch==2.15.0`. No Ubuntu, o PyPI instala a versão com CUDA, que é muito maior. No CI e no `Dockerfile`, instale antes o torch pelo índice CPU do PyTorch (`pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu`, conferindo que essa versão existe lá) e só depois o `requirements.txt`. Os testes usam embedder falso, então o CI não deve baixar nenhum modelo.
 
 ## Observação para a etapa 10 (não altera as notas)
 Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora de rotular, elas recebem o rótulo "sem resposta no corpus" e ficam fora do cálculo do recall@3. Elas servem para testar se o assistente admite que não sabe, em vez de inventar. Não escreva notas novas para cobrir essas perguntas: decidir isso é uma escolha manual.
