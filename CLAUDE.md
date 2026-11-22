@@ -53,6 +53,7 @@ app/geracao/  base.py (interface), ollama.py, huggingface.py
 corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
 sql/        init.sql
+scripts/    contar_tokens.py
 tests/
 .github/workflows/testes.yml
 docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, README.md
@@ -133,7 +134,7 @@ Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depo
 | sem limite | 53 | 262 / 321 / 53 (100%) | 264 / 323 / 0 |
 
 - **`max_seq_length`:** 128 no MiniLM e 512 no e5-small. **Dimensão 384 nos dois**, conferida ao carregar cada modelo: `get_embedding_dimension()` no código e `vector_dims(embedding)` no banco.
-- Os números de tokens vieram do `contar_tokens.py`, um script temporário na raiz do projeto que **não está versionado**.
+- Os números de tokens vêm do `scripts/contar_tokens.py`, que lê o modelo, o prefixo de documento e o dispositivo do `.env`, como a API. Rode na raiz do projeto com `python -m scripts.contar_tokens`. Para medir o e5 sem mexer no `.env`, defina `EMBEDDING_MODELO` e `EMBEDDING_PREFIXO_DOCUMENTO` como variáveis de ambiente antes de rodar. Rodado de novo depois de ir para `scripts/`, ele reproduziu exatamente a tabela acima.
 
 ## Observação para a etapa 9 (Docker)
 O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
