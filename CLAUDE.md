@@ -96,54 +96,48 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 6 (geração)
-Objetivo (do roteiro): a interface `gerar_resposta(pergunta, contexto)`, o provedor Ollama, o prompt com trechos numerados e citação, e o `POST /perguntas`.
+## Etapa atual: 7 (corpus, parte 2)
+Objetivo (do roteiro): escrever as 12 notas restantes, fazer a ingestão completa e um teste manual com 10 perguntas.
 
-**O que a etapa 5 deixou pronto:**
-- `app/embeddings.py`:
-  - `carregar_modelo(nome, dispositivo)` carrega o modelo uma vez só, com `lru_cache`. O `torch` só é importado nessa hora.
-  - `conferir_dimensao`, `gerar_vetores(modelo, textos, prefixo)` e `vetor_para_texto`.
-  - As funções recebem o modelo e o prefixo por parâmetro, para os testes usarem um modelo falso.
-- `app/busca.py`: `gerar_embeddings_dos_chunks(refazer)` e `buscar(pergunta, k) -> list[dict]`, com `nome_arquivo`, `titulo`, `secao`, `distancia` e `texto`. É a função que o `POST /perguntas` vai usar para montar o contexto.
-- `POST /embeddings` (com `?refazer=true`) e `GET /busca?pergunta=...&k=...`. O `k` precisa ser pelo menos 1, e sem ele vale o `BUSCA_K`. Pergunta vazia e `k=0` dão 422.
-- `.env`: `EMBEDDING_MODELO`, `EMBEDDING_PREFIXO_DOCUMENTO`, `EMBEDDING_PREFIXO_PERGUNTA`, `EMBEDDING_DISPOSITIVO=cpu` e `BUSCA_K=3`. **Um prefixo com espaço no fim precisa de aspas no `.env`** (`"passage: "`). Sem aspas, o espaço some (testado).
-- No banco: 13 notas e 155 chunks (60/10), todos com vetor do MiniLM.
+**O que a etapa 6 deixou pronto:**
+- `app/geracao/base.py`:
+  - `ProvedorLLM` é uma `Protocol` com `gerar_resposta(pergunta, contexto) -> str`, e `ErroProvedorLLM` é o erro dos provedores.
+  - O prompt fica em `INSTRUCOES` e `montar_mensagens`, com os trechos numerados `[1]`, `[2]`, `[3]`.
+  - `listar_fontes` tira as repetições de (nota, seção).
+- `app/geracao/ollama.py`: `ProvedorOllama` chama `/api/chat` com `stream: false`. Ollama fora do ar, timeout e erro HTTP viram `ErroProvedorLLM` com mensagem clara, e uma resposta cortada (`done_reason: "length"`) gera um aviso no log.
+- `app/geracao/__init__.py`: `criar_provedor(config)` escolhe o provedor pelo `LLM_PROVEDOR`. Só `ollama` é aceito, e o Hugging Face fica para depois.
+- `POST /perguntas` recebe `{"pergunta"}` e devolve `{"resposta", "fontes"}`. Responde 503 com o Ollama fora do ar, 409 sem embeddings e 422 com pergunta vazia ou só com espaços. As `fontes` vêm dos chunks recuperados, e não do texto do modelo.
+- **Valores finais no `.env`:** `LLM_NUM_PREDICT=256`, `LLM_TEMPERATURE=0.1`, `OLLAMA_NUM_CTX=4096` e `LLM_TIMEOUT=120`.
 
-**Observações da etapa 5:**
-- Reenviar uma nota apaga os vetores dela, então `POST /embeddings` precisa rodar de novo. Ao trocar de modelo, use `?refazer=true`, senão vetores de modelos diferentes se misturam.
-- Tempo medido nesta máquina (CPU), incluindo o carregamento do modelo: `POST /embeddings` dos 155 chunks levou cerca de 14 s com o MiniLM e 17 s com o e5. Sem nada a fazer, 0,3 s.
-- Nas buscas de teste, os 3 resultados muitas vezes vêm da mesma seção (janelas vizinhas, com overlap). Para o recall@3 isso não muda nada, mas no contexto do LLM vira trecho repetido.
-- As distâncias do e5 ficam bem menores que as do MiniLM: nas mesmas perguntas de teste, de 0,08 a 0,12 contra 0,27 a 0,52. Distâncias não são comparáveis entre modelos, então não use um limiar fixo de distância sem medir.
+**O que fazer nesta etapa:**
+- **Notas:** as 12 da parte 2 (`alocacao-dinamica`, `lista-encadeada`, `pilha`, `fila`, `pilha-vs-fila`, `map`, `set`, `map-vs-set`, `busca-linear-e-binaria`, `ordenacao-simples`, `recursao` e `complexidade-big-o`), seguindo as regras da seção Corpus:
+  - lotes pequenos, com revisão manual antes do commit;
+  - exemplos compilados com `gcc -Wall`, e os de `map` e `set` com `g++`;
+  - **sem ler a pasta `avaliacao/`** enquanto escreve.
+- Antes de escrever, confirme com o usuário que as perguntas de rascunho já cobrem os temas da parte 2. Elas precisam vir antes das notas.
+- **Ingestão completa:** enviar as 25 notas e rodar `POST /embeddings`.
+- **Medições:** refazer a contagem de chunks e de tokens com `python -m scripts.contar_tokens`, nos dois modelos, e atualizar a seção de medições.
+- **Teste manual:** 10 perguntas escolhidas à mão no `/docs`, registrando o que funcionou e o que falhou.
 
-**Padrões sugeridos para a etapa 6 (confirme com o usuário antes de implementar; ajuste o que os testes mostrarem):**
-- **Interface.** `app/geracao/base.py` define a interface `gerar_resposta(pergunta, contexto) -> str`. `contexto` é a lista de chunks que `busca.buscar` devolve (`nome_arquivo`, `titulo`, `secao`, `texto`). Uma `Protocol` com um único método basta: os fakes dos testes só precisam ter esse método. O texto do prompt também fica em `base.py`, numa função `montar_mensagens(pergunta, contexto)` que devolve a lista de mensagens (`system` e `user`), para o Ollama e o Hugging Face usarem o mesmo prompt.
-- **Prompt.** Em português, com as regras do "Estilo das respostas do assistente" (poucas frases, no máximo um exemplo curto de código, só os trechos recebidos, "não sei" se os trechos não respondem). Os trechos vão numerados (`[1]`, `[2]`, `[3]`). Ponto de partida, para ajustar testando: "Você é um monitor de Algoritmos e Estruturas de Dados e ajuda iniciantes. Responda em português, em no máximo 4 frases e com no máximo um exemplo curto de código. Use somente os trechos numerados abaixo e cite o número do trecho, como [1]. Se os trechos não responderem a pergunta, diga que não sabe, sem inventar." O texto de cada chunk já começa com `# <nota>` e `## <seção>`, então o título e a seção já aparecem no trecho: não repita isso no prompt, a menos que o teste mostre que ajuda.
-- **Quantos trechos.** Os mesmos `BUSCA_K` (3) da busca. Como os 3 primeiros muitas vezes vêm da mesma seção, na resposta da API a lista de fontes tira as repetições de (nota, seção), mantendo a ordem. Juntar janelas vizinhas da mesma seção no contexto do LLM fica como refinamento futuro, não entra agora.
-- **Provedor Ollama** (`app/geracao/ollama.py`): `POST {OLLAMA_URL}/api/chat` com `stream: false`, `model` = `LLM_MODEL` e, em `options`, `num_predict`, `temperature` e `num_ctx`. Use o `httpx`, que já está no `requirements.txt` (agora também em código de produção, não só nos testes). Fixe `num_ctx` no `.env` (4096), para o uso de VRAM ser previsível nos 6 GB. A primeira chamada depois de um tempo parado carrega o modelo na GPU e demora, então o timeout vem do `.env` e precisa ser generoso.
-- **Variáveis novas no `.env` e no `.env.example`**, lidas em `app/config.py`: `LLM_PROVEDOR=ollama`, `LLM_NUM_PREDICT`, `LLM_TEMPERATURE`, `LLM_TIMEOUT` (segundos) e `OLLAMA_NUM_CTX`. Valores para começar: `num_predict` 256 e `temperature` 0.1. Teste com algumas perguntas e ajuste: a resposta não pode ser cortada no meio, e o Ollama avisa isso com `done_reason: "length"`. Registre aqui os valores finais.
-- **Escolha do provedor:** uma função (por exemplo, em `app/geracao/__init__.py`) lê `LLM_PROVEDOR` e devolve o provedor. Só `ollama` é válido por enquanto, e qualquer outro valor dá um erro claro. **O provedor Hugging Face não entra nesta etapa**: a interface fica pronta para ele, e fica para depois.
-- **`POST /perguntas`:** corpo JSON `{"pergunta": "..."}`, resposta `{"resposta": "...", "fontes": [{"nome_arquivo", "titulo", "secao"}]}`. Fluxo: `busca.buscar` → provedor → resposta. As `fontes` vêm do código, a partir dos chunks recuperados, e **não** do texto do modelo: um modelo de 3B cita de forma pouco confiável. A lista mostra os trechos consultados, e não prova qual deles o modelo usou. No README, descreva assim.
-- **Erros claros:** Ollama fora do ar ou timeout → 503 com mensagem dizendo para conferir se o Ollama está rodando em `OLLAMA_URL`. Nenhum chunk com embedding → 409 pedindo para rodar `POST /embeddings`. Pergunta vazia → 422.
-- **Sem limiar de distância.** As distâncias de cada modelo não são comparáveis (ver as observações da etapa 5). O "não sei" fica por conta do prompt, e o quanto ele funciona é medido, não presumido.
+## Resultados da geração (etapa 6)
+Medidos rodando o código, com 5 perguntas escolhidas à mão (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas.
+- **As 5 respostas terminaram com `done_reason: "stop"`**, nenhuma cortada. Usaram de 10 a 135 tokens de resposta, e o prompt ficou entre 471 e 598 tokens, bem abaixo de `num_ctx` 4096.
+- **Tempo:** a primeira pergunta depois de subir a API levou de 12 a 20 s, porque carrega o modelo de embedding e o LLM. As seguintes levaram de 0,3 a 1,9 s.
+- **Fora do corpus:** com "Como funciona uma árvore binária de busca?", o modelo respondeu "Não sei responder isso com base nas notas.", que é a frase pedida no prompt.
+- **As `fontes` bateram com o `GET /busca`** nas 5 perguntas.
+- **Com o Ollama desligado,** a rota devolveu 503 com a mensagem de conexão, e o `/saude` continuou respondendo.
+- **Ajuste do prompt (2 rodadas).** Na primeira versão, o modelo:
+  - inventou que `strcmp("sim", "SIM")` devolve 0 "independentemente de maiúsculas";
+  - deu um exemplo de código longo;
+  - respondeu "Não sabe." para a pergunta fora do corpus.
 
-**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
-1. Variáveis novas no `.env`/`.env.example` e em `app/config.py`.
-2. `app/geracao/base.py`: a interface e `montar_mensagens`, com testes (trechos numerados, instruções presentes, nenhum chunk perdido).
-3. `app/geracao/ollama.py`, com testes que trocam o transporte do `httpx` por um falso (`httpx.MockTransport`): conferem o corpo enviado (modelo, `stream: false`, `options`) e os erros. Nenhum teste chama o Ollama de verdade.
-4. A função que escolhe o provedor pelo `LLM_PROVEDOR`.
-5. Schemas e `POST /perguntas`, com a lista de fontes sem repetições (função pura, com teste).
-6. Teste manual no `/docs` com perguntas escolhidas à mão e ajuste de `num_predict` e do prompt. Não precisa ler a pasta `avaliacao/`. Limite os ajustes de prompt a poucas rodadas: o que sobrar de falha entra como limitação no README.
-7. Atualizar o `requirements.txt` só se algo novo for usado.
-
-**Pronto quando:**
-- [ ] `POST /perguntas` com uma pergunta coberta pelas notas devolve uma resposta curta, em português, e a lista de `fontes` bate com os chunks que `GET /busca` mostra para a mesma pergunta.
-- [ ] Com uma pergunta fora do corpus (por exemplo, sobre árvore binária, que nenhuma nota cobre), o assistente diz que não sabe. Se o modelo inventar mesmo assim, registre o caso como limitação, sem esconder.
-- [ ] Com o Ollama desligado, a rota responde 503 com mensagem clara, sem derrubar a API.
-- [ ] As respostas de teste não saem cortadas (`done_reason` não é `length`) e os valores finais de `num_predict`, `temperature` e `num_ctx` estão registrados nesta seção.
-- [ ] A resposta real com RAG para a pergunta do baseline ("Por que o índice de vetores em C começa em 0?") foi guardada, com modelo, parâmetros e data, para a comparação do README na etapa 12. A resposta é a que o código devolveu, sem retoque. Quem salva o arquivo em `avaliacao/` é o usuário.
-- [ ] `pytest` passa sem o Ollama e sem baixar modelos.
-
-Ao terminar, marque a etapa 6 no roteiro e troque esta seção pela etapa 7.
+  A segunda versão passou a pedir para não acrescentar nada além dos trechos, limitar o exemplo a 6 linhas e usar uma frase fixa quando não souber. Com ela, esses três problemas não apareceram nas mesmas perguntas.
+- **Limitações que continuam, para o README:**
+  - o modelo quase não cita o número do trecho (`[1]`), mesmo com o pedido no prompt;
+  - às vezes repete a pergunta no começo da resposta;
+  - usa termos em inglês, como "undefined behavior";
+  - um modelo de 3B pode inventar detalhes mesmo com o contexto certo, como mostrou o caso do `strcmp`.
+- **Resposta com RAG para a pergunta do baseline:** foi guardada num JSON, com o modelo, os parâmetros e a data (2026-11-23), e entregue ao usuário para ele salvar em `avaliacao/`.
 
 ## Medições registradas (para o README)
 Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depois da parte 2 do corpus (etapa 7).
@@ -177,7 +171,7 @@ Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora
 - [x] 3. API e banco: FastAPI, `config.py` com `.env`, tabelas `documentos` e `chunks` com `vector(384)` no `init.sql`, `POST /documentos`.
 - [x] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
 - [x] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
-- [ ] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
+- [x] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
 - [ ] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
 - [ ] 8. Testes e CI: pytest com fakes e GitHub Actions.
 - [ ] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
