@@ -1,0 +1,26 @@
+{
+  "pergunta": "Por que o índice de vetores em C começa em 0?",
+  "resposta_da_api": {
+    "resposta": "Por que o índice de vetores em C começa em 0, é porque o índice é um deslocamento a partir do início. O primeiro elemento está exatamente no início, então o deslocamento até ele é zero. Por isso, o primeiro elemento é `v[0]`, o segundo é `v[1]`, e assim por diante.",
+    "fontes": [
+      {
+        "nome_arquivo": "indice-zero.md",
+        "titulo": "Por que o índice de vetores em C começa em 0",
+        "secao": "O índice de um vetor em C é um deslocamento a partir do início"
+      }
+    ]
+  },
+  "data": "2026-11-23T08:40:46-03:00",
+  "llm": {
+    "modelo": "qwen2.5:3b",
+    "num_predict": 256,
+    "temperature": 0.1,
+    "num_ctx": 4096
+  },
+  "busca": {
+    "modelo_embedding": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "k": 3,
+    "chunk_max_palavras": 60,
+    "chunk_overlap_palavras": 10
+  }
+}

@@ -1,5 +1,6 @@
 """API do assistente de AED. Rodar com: uvicorn app.main:app --reload"""
 
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Response, UploadFile, status
@@ -7,10 +8,25 @@ from fastapi import FastAPI, HTTPException, Query, Response, UploadFile, status
 from app import busca, db
 from app.chunking import dividir_em_chunks
 from app.config import settings
+from app.geracao import criar_provedor
+from app.geracao.base import ErroProvedorLLM, ProvedorLLM, listar_fontes
 from app.notas import NotaInvalida, ler_nota
-from app.schemas import DocumentoSaida, EmbeddingsSaida, ResultadoBusca, SaudeSaida
+from app.schemas import (
+    DocumentoSaida,
+    EmbeddingsSaida,
+    PerguntaEntrada,
+    RespostaSaida,
+    ResultadoBusca,
+    SaudeSaida,
+)
 
 app = FastAPI(title="Assistente AED")
+
+
+@lru_cache(maxsize=1)
+def provedor_configurado() -> ProvedorLLM:
+    """O provedor de LLM do .env, criado uma vez só (reaproveita a conexão HTTP)."""
+    return criar_provedor(settings)
 
 
 @app.get("/saude", response_model=SaudeSaida)
@@ -107,3 +123,34 @@ def buscar(
         return busca.buscar(pergunta, k or settings.busca_k)
     except ValueError as erro:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
+
+
+@app.post("/perguntas", response_model=RespostaSaida)
+def responder_pergunta(entrada: PerguntaEntrada) -> dict:
+    """Busca os trechos mais próximos da pergunta e pede a resposta ao LLM.
+
+    As fontes são os trechos consultados (sem repetir nota e seção), e não uma
+    citação extraída do texto do modelo.
+    """
+    try:
+        contexto = busca.buscar(entrada.pergunta, settings.busca_k)
+    except ValueError as erro:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
+    if not contexto:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Nenhum chunk tem embedding ainda. Rode POST /embeddings antes de perguntar.",
+        )
+
+    try:
+        provedor = provedor_configurado()
+    except ValueError as erro:
+        # LLM_PROVEDOR inválido no .env é erro de configuração do servidor.
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(erro))
+
+    try:
+        resposta = provedor.gerar_resposta(entrada.pergunta, contexto)
+    except ErroProvedorLLM as erro:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(erro))
+
+    return {"resposta": resposta, "fontes": listar_fontes(contexto)}
