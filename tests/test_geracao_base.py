@@ -29,7 +29,7 @@ def test_mensagens_tem_system_com_as_instrucoes_e_user_com_a_pergunta():
 
 
 def test_instrucoes_tem_as_regras_do_estilo_das_respostas():
-    for regra in ("português", "no máximo 4 frases", "um exemplo curto", "[1]", "não sabe"):
+    for regra in ("português", "no máximo 4 frases", "um exemplo curto", "[1]", "Não sei"):
         assert regra in INSTRUCOES
 
 
