@@ -49,7 +49,7 @@ Fluxo:
 ## Estrutura planejada
 ```
 app/        main.py, config.py, db.py, schemas.py, notas.py, chunking.py, embeddings.py, busca.py
-app/geracao/  base.py (interface), ollama.py, huggingface.py
+app/geracao/  __init__.py, base.py (interface e prompt), ollama.py, huggingface.py (depois)
 corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
 sql/        init.sql
@@ -115,12 +115,35 @@ Objetivo (do roteiro): a interface `gerar_resposta(pergunta, contexto)`, o prove
 - Nas buscas de teste, os 3 resultados muitas vezes vêm da mesma seção (janelas vizinhas, com overlap). Para o recall@3 isso não muda nada, mas no contexto do LLM vira trecho repetido.
 - As distâncias do e5 ficam bem menores que as do MiniLM: nas mesmas perguntas de teste, de 0,08 a 0,12 contra 0,27 a 0,52. Distâncias não são comparáveis entre modelos, então não use um limiar fixo de distância sem medir.
 
-**A decidir antes de começar:**
-- o texto do prompt: as instruções, o formato dos trechos numerados e o da citação (nota e seção);
-- quantos trechos vão para o LLM (o mesmo k=3 da busca?) e o que fazer com trechos repetidos da mesma seção;
-- os valores de `num_predict` e `temperature` do Ollama, que vão para o `.env`;
-- o formato da resposta do `POST /perguntas` (por exemplo, a resposta mais a lista de fontes);
-- se o provedor Hugging Face entra nesta etapa ou depois (a interface já fica pronta para ele).
+**Padrões sugeridos para a etapa 6 (confirme com o usuário antes de implementar; ajuste o que os testes mostrarem):**
+- **Interface.** `app/geracao/base.py` define a interface `gerar_resposta(pergunta, contexto) -> str`. `contexto` é a lista de chunks que `busca.buscar` devolve (`nome_arquivo`, `titulo`, `secao`, `texto`). Uma `Protocol` com um único método basta: os fakes dos testes só precisam ter esse método. O texto do prompt também fica em `base.py`, numa função `montar_mensagens(pergunta, contexto)` que devolve a lista de mensagens (`system` e `user`), para o Ollama e o Hugging Face usarem o mesmo prompt.
+- **Prompt.** Em português, com as regras do "Estilo das respostas do assistente" (poucas frases, no máximo um exemplo curto de código, só os trechos recebidos, "não sei" se os trechos não respondem). Os trechos vão numerados (`[1]`, `[2]`, `[3]`). Ponto de partida, para ajustar testando: "Você é um monitor de Algoritmos e Estruturas de Dados e ajuda iniciantes. Responda em português, em no máximo 4 frases e com no máximo um exemplo curto de código. Use somente os trechos numerados abaixo e cite o número do trecho, como [1]. Se os trechos não responderem a pergunta, diga que não sabe, sem inventar." O texto de cada chunk já começa com `# <nota>` e `## <seção>`, então o título e a seção já aparecem no trecho: não repita isso no prompt, a menos que o teste mostre que ajuda.
+- **Quantos trechos.** Os mesmos `BUSCA_K` (3) da busca. Como os 3 primeiros muitas vezes vêm da mesma seção, na resposta da API a lista de fontes tira as repetições de (nota, seção), mantendo a ordem. Juntar janelas vizinhas da mesma seção no contexto do LLM fica como refinamento futuro, não entra agora.
+- **Provedor Ollama** (`app/geracao/ollama.py`): `POST {OLLAMA_URL}/api/chat` com `stream: false`, `model` = `LLM_MODEL` e, em `options`, `num_predict`, `temperature` e `num_ctx`. Use o `httpx`, que já está no `requirements.txt` (agora também em código de produção, não só nos testes). Fixe `num_ctx` no `.env` (4096), para o uso de VRAM ser previsível nos 6 GB. A primeira chamada depois de um tempo parado carrega o modelo na GPU e demora, então o timeout vem do `.env` e precisa ser generoso.
+- **Variáveis novas no `.env` e no `.env.example`**, lidas em `app/config.py`: `LLM_PROVEDOR=ollama`, `LLM_NUM_PREDICT`, `LLM_TEMPERATURE`, `LLM_TIMEOUT` (segundos) e `OLLAMA_NUM_CTX`. Valores para começar: `num_predict` 256 e `temperature` 0.1. Teste com algumas perguntas e ajuste: a resposta não pode ser cortada no meio, e o Ollama avisa isso com `done_reason: "length"`. Registre aqui os valores finais.
+- **Escolha do provedor:** uma função (por exemplo, em `app/geracao/__init__.py`) lê `LLM_PROVEDOR` e devolve o provedor. Só `ollama` é válido por enquanto, e qualquer outro valor dá um erro claro. **O provedor Hugging Face não entra nesta etapa**: a interface fica pronta para ele, e fica para depois.
+- **`POST /perguntas`:** corpo JSON `{"pergunta": "..."}`, resposta `{"resposta": "...", "fontes": [{"nome_arquivo", "titulo", "secao"}]}`. Fluxo: `busca.buscar` → provedor → resposta. As `fontes` vêm do código, a partir dos chunks recuperados, e **não** do texto do modelo: um modelo de 3B cita de forma pouco confiável. A lista mostra os trechos consultados, e não prova qual deles o modelo usou. No README, descreva assim.
+- **Erros claros:** Ollama fora do ar ou timeout → 503 com mensagem dizendo para conferir se o Ollama está rodando em `OLLAMA_URL`. Nenhum chunk com embedding → 409 pedindo para rodar `POST /embeddings`. Pergunta vazia → 422.
+- **Sem limiar de distância.** As distâncias de cada modelo não são comparáveis (ver as observações da etapa 5). O "não sei" fica por conta do prompt, e o quanto ele funciona é medido, não presumido.
+
+**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
+1. Variáveis novas no `.env`/`.env.example` e em `app/config.py`.
+2. `app/geracao/base.py`: a interface e `montar_mensagens`, com testes (trechos numerados, instruções presentes, nenhum chunk perdido).
+3. `app/geracao/ollama.py`, com testes que trocam o transporte do `httpx` por um falso (`httpx.MockTransport`): conferem o corpo enviado (modelo, `stream: false`, `options`) e os erros. Nenhum teste chama o Ollama de verdade.
+4. A função que escolhe o provedor pelo `LLM_PROVEDOR`.
+5. Schemas e `POST /perguntas`, com a lista de fontes sem repetições (função pura, com teste).
+6. Teste manual no `/docs` com perguntas escolhidas à mão e ajuste de `num_predict` e do prompt. Não precisa ler a pasta `avaliacao/`. Limite os ajustes de prompt a poucas rodadas: o que sobrar de falha entra como limitação no README.
+7. Atualizar o `requirements.txt` só se algo novo for usado.
+
+**Pronto quando:**
+- [ ] `POST /perguntas` com uma pergunta coberta pelas notas devolve uma resposta curta, em português, e a lista de `fontes` bate com os chunks que `GET /busca` mostra para a mesma pergunta.
+- [ ] Com uma pergunta fora do corpus (por exemplo, sobre árvore binária, que nenhuma nota cobre), o assistente diz que não sabe. Se o modelo inventar mesmo assim, registre o caso como limitação, sem esconder.
+- [ ] Com o Ollama desligado, a rota responde 503 com mensagem clara, sem derrubar a API.
+- [ ] As respostas de teste não saem cortadas (`done_reason` não é `length`) e os valores finais de `num_predict`, `temperature` e `num_ctx` estão registrados nesta seção.
+- [ ] A resposta real com RAG para a pergunta do baseline ("Por que o índice de vetores em C começa em 0?") foi guardada, com modelo, parâmetros e data, para a comparação do README na etapa 12. A resposta é a que o código devolveu, sem retoque. Quem salva o arquivo em `avaliacao/` é o usuário.
+- [ ] `pytest` passa sem o Ollama e sem baixar modelos.
+
+Ao terminar, marque a etapa 6 no roteiro e troque esta seção pela etapa 7.
 
 ## Medições registradas (para o README)
 Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depois da parte 2 do corpus (etapa 7).
@@ -138,6 +161,9 @@ Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depo
 
 ## Observação para a etapa 9 (Docker)
 O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
+
+## Observação para a etapa 9 (Ollama)
+O Ollama roda no Windows, fora do Docker. Dentro do container, `localhost` é o próprio container, então a API precisa de `OLLAMA_URL=http://host.docker.internal:11434` (Docker Desktop no Windows). No Linux e no CI não há Ollama: os testes usam o LLM falso.
 
 ## Observação para as etapas 8 e 9 (torch)
 No `requirements.txt` fica `torch==2.15.0`. No Ubuntu, o PyPI instala a versão com CUDA, que é muito maior. No CI e no `Dockerfile`, instale antes o torch pelo índice CPU do PyTorch (`pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu`, conferindo que essa versão existe lá) e só depois o `requirements.txt`. Os testes usam embedder falso, então o CI não deve baixar nenhum modelo.
