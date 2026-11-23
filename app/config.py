@@ -29,5 +29,14 @@ class Settings(BaseSettings):
     embedding_dispositivo: str
     busca_k: int
 
+    # Geração (etapa 6). Por enquanto, LLM_PROVEDOR só aceita "ollama".
+    llm_provedor: str
+    llm_model: str
+    llm_num_predict: int
+    llm_temperature: float
+    llm_timeout: float  # segundos
+    ollama_url: str
+    ollama_num_ctx: int
+
 
 settings = Settings()
