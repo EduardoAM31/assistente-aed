@@ -3,15 +3,19 @@
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Response, UploadFile, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import JSONResponse
+from pg8000.exceptions import InterfaceError
 
 from app import busca, db
 from app.chunking import dividir_em_chunks
 from app.config import settings
+from app.embeddings import ErroModeloEmbedding
 from app.geracao import criar_provedor
 from app.geracao.base import ErroProvedorLLM, ProvedorLLM, listar_fontes
 from app.notas import NotaInvalida, ler_nota
 from app.schemas import (
+    TAMANHO_MAXIMO_PERGUNTA,
     DocumentoSaida,
     EmbeddingsSaida,
     PerguntaEntrada,
@@ -21,6 +25,29 @@ from app.schemas import (
 )
 
 app = FastAPI(title="Assistente AED")
+
+
+# Tratamentos únicos para serviços fora do ar, em vez de um try/except em cada rota.
+@app.exception_handler(InterfaceError)
+async def banco_fora_do_ar(request: Request, erro: InterfaceError) -> JSONResponse:
+    """O pg8000 levanta InterfaceError quando não consegue conectar no Postgres."""
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "detail": (
+                f"Não foi possível conectar ao banco em {settings.postgres_host}:"
+                f"{settings.postgres_port}. Confira se o Postgres está rodando "
+                "(docker compose up -d)."
+            )
+        },
+    )
+
+
+@app.exception_handler(ErroModeloEmbedding)
+async def modelo_indisponivel(request: Request, erro: ErroModeloEmbedding) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(erro)}
+    )
 
 
 @lru_cache(maxsize=1)
@@ -111,7 +138,7 @@ def gerar_embeddings(refazer: bool = False) -> EmbeddingsSaida:
 
 @app.get("/busca", response_model=list[ResultadoBusca])
 def buscar(
-    pergunta: str = Query(min_length=1),
+    pergunta: str = Query(min_length=1, max_length=TAMANHO_MAXIMO_PERGUNTA),
     k: int | None = Query(default=None, ge=1),
 ) -> list[dict]:
     """Rota de depuração: mostra os k chunks mais próximos da pergunta.

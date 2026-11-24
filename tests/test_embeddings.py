@@ -1,6 +1,8 @@
 """Testes de app/embeddings.py com um modelo falso. Nenhum modelo é baixado."""
 
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -70,5 +72,15 @@ def test_dimensao_errada_da_erro_claro():
 
 
 def test_importar_embeddings_nao_carrega_o_torch():
-    # O torch só deve ser importado ao carregar o modelo de verdade.
-    assert "torch" not in sys.modules
+    # O torch só deve ser importado ao carregar o modelo de verdade. A checagem roda
+    # num Python novo, porque outro teste pode ter importado o torch neste processo.
+    raiz = Path(__file__).resolve().parent.parent
+    resultado = subprocess.run(
+        [sys.executable, "-c", "import sys, app.embeddings; print('torch' in sys.modules)"],
+        cwd=raiz,
+        capture_output=True,
+        text=True,
+    )
+
+    assert resultado.returncode == 0, resultado.stderr
+    assert resultado.stdout.strip() == "False"

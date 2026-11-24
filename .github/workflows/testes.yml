@@ -1,0 +1,56 @@
+name: testes
+
+# Cada etapa entra por PR, e o push na main confere o resultado depois do merge.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    # Postgres com pgvector, a mesma imagem do docker-compose.yml, já com o banco de teste.
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: aed_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rag -d aed_teste"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_DB: aed_teste
+      PGPASSWORD: rag   # usado pelo psql ao aplicar o init.sql
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"   # a mesma versão do venv local
+          cache: pip
+
+      - name: Cria o .env a partir do .env.example
+        # Também confere que o .env.example está completo: o Settings exige todas as variáveis.
+        run: cp .env.example .env
+
+      - name: Instala o torch (CPU) e as dependências
+        # Sem o índice CPU, o PyPI instalaria no Ubuntu o torch com CUDA, que é muito maior.
+        run: |
+          pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Aplica o sql/init.sql no banco de teste
+        run: psql -h localhost -U rag -d aed_teste -f sql/init.sql
+
+      - name: Roda os testes
+        # O GitHub Actions define CI=true: sem banco, os testes de integração falham em vez de pular.
+        run: pytest -v

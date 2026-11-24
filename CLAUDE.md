@@ -54,7 +54,7 @@ corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
 sql/        init.sql
 scripts/    contar_tokens.py
-tests/
+tests/      conftest.py (banco aed_teste e fakes), test_*.py
 .github/workflows/testes.yml
 docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, README.md
 ```
@@ -96,30 +96,45 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 8 (testes e CI)
-Objetivo (do roteiro): pytest com fakes e GitHub Actions.
+## Etapa atual: 9 (Docker)
+Objetivo (do roteiro): o `Dockerfile` da API, com o torch só para CPU, e o Compose completo.
 
-**O que já existe:**
-- **144 testes** em `tests/`, que rodam sem banco, sem Ollama e sem baixar modelos:
-  - `test_notas.py` e `test_chunking.py`, que também passam as 25 notas do corpus pelo leitor e pelo chunker;
-  - `test_embeddings.py`, com modelo falso;
-  - `test_geracao_base.py`, `test_geracao_ollama.py` (com `httpx.MockTransport`) e `test_geracao_provedor.py`.
-- O `pytest.ini` coloca a raiz do projeto no caminho de importação.
-- Os módulos `app/chunking.py`, `app/notas.py`, `app/embeddings.py` e `app/geracao/` não leem o `.env`, e por isso os testes deles rodam no CI sem configuração. `app/config.py`, `app/db.py`, `app/busca.py` e `app/main.py` leem o `.env` ao serem importados.
+**O que a etapa 8 deixou pronto:**
+- **170 testes:**
+  - 153 rodam sem banco;
+  - 17 de integração (marcador `integracao`) rodam no banco **`aed_teste`**, nunca no `aed`. O `tests/conftest.py` troca o banco antes de importar o `app` e recusa limpar qualquer banco cujo nome não termine em `_teste`.
+- **Fakes** no `conftest.py`: `ModeloFalso`, com vetores previsíveis por palavra-chave, e `LLMFalso`, que guarda o contexto recebido. As fixtures `fakes`, `banco_limpo` e `cliente` montam os testes.
+- **Banco de teste local:** criado uma vez com `docker compose exec db psql -U rag -d aed -c "CREATE DATABASE aed_teste"` e depois `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed_teste`. Sem o banco no ar, os testes de integração são pulados localmente. No CI (`CI=true`), eles falham.
+- **503 com mensagem clara**, num tratamento único em `main.py`, quando o banco está fora do ar (`InterfaceError` do pg8000) ou quando o modelo de embedding não pode ser carregado (`ErroModeloEmbedding`, que embrulha o `OSError` do sentence-transformers).
+- **A pergunta tem no máximo 500 caracteres** (`TAMANHO_MAXIMO_PERGUNTA`, em `app/schemas.py`), no `POST /perguntas` e no `GET /busca`.
+- **`.github/workflows/testes.yml`:** roda em PR e em push na `main`, com Ubuntu, Python 3.14, pgvector como service container, `cp .env.example .env` e o `torch==2.15.0` pelo índice CPU antes do `requirements.txt`.
+- **Medido no primeiro run do CI (PR #7):**
+  - job de 96 s, dos quais 68 s são a instalação do torch e das dependências;
+  - 170 testes passaram em 2,4 s.
+
+  Instalar o torch no CI ficou mantido. A alternativa de não instalar o `torch` e o `sentence-transformers` no CI continua possível, e a escolha é do usuário.
+- **Não entrou:** a troca do `SELECT` antes do upsert por `RETURNING (xmax = 0)`, que era opcional.
 
 **O que fazer nesta etapa:**
-- **Testes de integração das rotas** (`POST /documentos`, `POST /embeddings`, `GET /busca`, `POST /perguntas`, `GET /saude`) com o `TestClient` do FastAPI e o Postgres de verdade. O embedder e o LLM continuam falsos. Os pontos para trocar por fakes são `busca.modelo_configurado` e `main.provedor_configurado`.
-- **`.github/workflows/testes.yml`** (Ubuntu):
-  - Postgres com pgvector como service container;
-  - instalar o `torch` pelo índice CPU antes do `requirements.txt` (veja a observação das etapas 8 e 9);
-  - definir as variáveis do `.env` no próprio workflow, porque o `.env` não é versionado;
-  - aplicar o `sql/init.sql` antes dos testes.
-- **Nenhum teste pode baixar modelo nem depender do Ollama.**
+- **`Dockerfile` da API:** instalar o torch pelo índice CPU antes do `requirements.txt`, como no CI, e rodar o `uvicorn`.
+- **Compose completo:** acrescentar o serviço da API ao `docker-compose.yml`, ao lado do `db`.
+- Resolver as duas observações abaixo:
+  - dentro do Docker, a API conecta em `db:5432`, e não na porta publicada;
+  - o Ollama roda fora do Docker, em `host.docker.internal`.
+- **O cache dos modelos de embedding:** decidir se fica num volume, para não baixar de novo a cada build ou a cada container.
 
 **A decidir antes de começar:**
-- como os testes de integração preparam e limpam o banco (um banco separado, ou apagar as tabelas antes de cada teste);
-- se os testes de integração ficam marcados, para poderem ser pulados localmente quando o banco não está no ar;
-- em quais eventos o workflow roda (push, pull request ou os dois).
+- como separar a porta publicada do banco (`5433` neste computador) da porta que a API usa dentro do Docker;
+- se os modelos de embedding ficam num volume ou são baixados no build da imagem;
+- o tamanho aceitável da imagem e a RAM do container, com 8 GB no total.
+
+## Pendência: ajustes da geração (PR pequeno e separado, sem misturar com outra etapa)
+Vem das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
+- **Resposta cortada pelo `num_predict`:** subir o `LLM_NUM_PREDICT` para 400 a 512 e pedir no prompt só as linhas principais do exemplo, sem `#include` e `main`, e sem copiar o trecho inteiro. Os exemplos das notas são programas completos e passam do limite de 6 linhas que o prompt pede. Opcional: um campo `cortada` na resposta da API quando `done_reason` for `length`.
+- **Falso "não sei":** dizer "não sei" só se nenhum trecho tratar do assunto, e responder com o que os trechos dizem quando eles trazem a resposta só em parte. Teste nas duas direções (perguntas fora do corpus e perguntas do corpus), com 1 ou 2 rodadas no máximo.
+- Os outros 2 problemas (o detalhe errado sobre a lista encadeada e a resposta vaga sobre laços aninhados) são limitações do modelo de 3B e vão para o README. **Não edite as notas para corrigi-los.**
+- **Não troque o `qwen2.5:3b`:** a comparação com e sem RAG do README usa esse modelo.
+- Depois do ajuste, repita as mesmas perguntas e outras que não foram usadas no ajuste, e registre o que melhorou e o que não melhorou. A qualidade das respostas é avaliada só por observação, e a única métrica do projeto é o recall@3 da busca.
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
@@ -198,7 +213,7 @@ Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora
 - [x] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
 - [x] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
 - [x] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
-- [ ] 8. Testes e CI: pytest com fakes e GitHub Actions.
+- [x] 8. Testes e CI: pytest com fakes e GitHub Actions.
 - [ ] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
 - [ ] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
 - [ ] 11. Experimentos: modelo de embedding × tamanho de chunk.
