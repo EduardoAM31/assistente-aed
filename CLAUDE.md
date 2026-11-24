@@ -112,21 +112,50 @@ Objetivo (do roteiro): o `Dockerfile` da API, com o torch só para CPU, e o Comp
   - job de 96 s, dos quais 68 s são a instalação do torch e das dependências;
   - 170 testes passaram em 2,4 s.
 
+  No segundo run, com o cache de pip, o job levou 68 s (37 s de instalação) e os 170 testes, 1,4 s.
+
   Instalar o torch no CI ficou mantido. A alternativa de não instalar o `torch` e o `sentence-transformers` no CI continua possível, e a escolha é do usuário.
 - **Não entrou:** a troca do `SELECT` antes do upsert por `RETURNING (xmax = 0)`, que era opcional.
 
-**O que fazer nesta etapa:**
-- **`Dockerfile` da API:** instalar o torch pelo índice CPU antes do `requirements.txt`, como no CI, e rodar o `uvicorn`.
-- **Compose completo:** acrescentar o serviço da API ao `docker-compose.yml`, ao lado do `db`.
-- Resolver as duas observações abaixo:
-  - dentro do Docker, a API conecta em `db:5432`, e não na porta publicada;
-  - o Ollama roda fora do Docker, em `host.docker.internal`.
-- **O cache dos modelos de embedding:** decidir se fica num volume, para não baixar de novo a cada build ou a cada container.
+**O que fazer nesta etapa:** o `Dockerfile` e o `.dockerignore` da API, o serviço `api` no `docker-compose.yml` ao lado do `db`, e o teste de ponta a ponta com tudo em container (a API no Docker, o Ollama no Windows).
 
-**A decidir antes de começar:**
-- como separar a porta publicada do banco (`5433` neste computador) da porta que a API usa dentro do Docker;
-- se os modelos de embedding ficam num volume ou são baixados no build da imagem;
-- o tamanho aceitável da imagem e a RAM do container, com 8 GB no total.
+**Padrões sugeridos para a etapa 9 (confirme com o usuário antes de implementar):**
+- **Imagem:** `python:3.14-slim` (confira que a tag existe; o CI usa o Python 3.14). Não use Alpine, porque o torch precisa de glibc. Instale o `torch==2.15.0` pelo índice CPU antes do `requirements.txt` (`pip install --no-cache-dir`), como no CI. Copie primeiro o `requirements.txt` e instale, para essa camada ficar em cache, e só depois copie o `app/`. **Só o `app/` vai para a imagem:** as notas entram pela API (`POST /documentos`), e o `sql/init.sql` é do serviço `db`.
+- **`.dockerignore`:** `.env`, `.venv`, `.git`, `__pycache__`, `tests`, `corpus`, `avaliacao` e `scripts`. O `.env` nunca entra na imagem.
+- **Usuário sem privilégios de root**, se não complicar: crie um usuário `app`, defina `HF_HOME=/modelos` e crie `/modelos` na imagem com esse dono, para o volume nomeado herdar a permissão. Se complicar, rode como root e registre isso como limitação.
+- **Comando:** `uvicorn app.main:app --host 0.0.0.0 --port 8000`, sem `--reload`.
+- **Porta do banco, sem separar variáveis:** o serviço `api` usa `env_file: .env` e, em `environment:`, sobrescreve `POSTGRES_HOST: db` e `POSTGRES_PORT: "5432"`. O `environment` vale mais que o `env_file`, e o `Settings` lê as variáveis de ambiente antes do `.env`. A `POSTGRES_PORT=5433` do `.env` continua servindo só para a porta publicada do `db`.
+- **Ollama no Windows:** `OLLAMA_URL: http://host.docker.internal:11434` em `environment:` e `extra_hosts: ["host.docker.internal:host-gateway"]` (necessário no Linux, inofensivo no Docker Desktop). Se der "connection refused", o Ollama pode estar escutando só em `127.0.0.1`. A saída é `OLLAMA_HOST=0.0.0.0`, que expõe o Ollama na rede local: avise o usuário antes de sugerir.
+- **Modelos de embedding num volume nomeado** (`modelos`, montado em `HF_HOME`), e não baixados no build. A imagem fica menor, o modelo muda com o `.env` nos experimentos da etapa 11, e o download (cerca de 470 MB no MiniLM) acontece uma vez, na primeira chamada de `POST /embeddings` ou `GET /busca`. O cache do Windows não vale no container, que é Linux.
+- **`depends_on` com `condition: service_healthy`** (o `db` já tem healthcheck) e, opcional, um healthcheck da API em `GET /saude`.
+- **Porta 8000 publicada.** Se a API também estiver rodando no venv na 8000, pare uma das duas. Para subir só o banco no dia a dia, use `docker compose up -d db`.
+- **Opcional no CI:** um job que só faz o `docker build` da imagem, para o `Dockerfile` não quebrar sem ninguém ver. Pergunte ao usuário e registre o tempo medido.
+- **RAM:** o WSL2 pode estar limitado a 3 GB no `.wslconfig` (confirme com o usuário), e o banco e a API com torch e o modelo precisam caber nisso. Meça com `docker stats` durante o `POST /embeddings` e registre o valor medido aqui. Não estime.
+
+**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
+1. `.dockerignore` e `Dockerfile`. Rode `docker build` e registre o tamanho (`docker images`) e o tempo.
+2. Serviço `api` no Compose, com as variáveis acima. Rode `docker compose up -d` e confira `GET http://localhost:8000/saude`, que usa o banco por `db:5432`.
+3. Teste manual no `/docs`: enviar uma nota, rodar `POST /embeddings` (o modelo baixa para o volume) e `GET /busca`.
+4. Recriar o container (`docker compose up -d --force-recreate api`) e conferir que o modelo **não** baixa de novo.
+5. `POST /perguntas` com o Ollama rodando no Windows.
+6. Registrar o tamanho da imagem, o uso de RAM e os tempos nesta seção, só com o que foi medido.
+7. Apagar as observações da etapa 9 (porta do banco, Ollama e torch) que ficaram resolvidas.
+
+**Cuidados:**
+- **Nunca rode `docker compose down -v` sem perguntar.** Com o serviço novo, o `-v` apaga também o volume `modelos`, além do `pgdata` (as 25 notas e os vetores).
+- Não mexa no banco de desenvolvimento `aed` nem no `aed_teste` fora dos testes.
+- O `sql/init.sql` não precisa ser aplicado de novo, porque o volume já existe.
+
+**Pronto quando:**
+- [ ] `docker compose build` e `docker compose up -d` sobem o `db` e a `api`, e `GET /saude` responde que o banco está ok.
+- [ ] Enviar uma nota, rodar `POST /embeddings` e `GET /busca` pelo container funciona.
+- [ ] Depois de recriar o container, o modelo não é baixado de novo.
+- [ ] `POST /perguntas` pelo container chega ao Ollama no Windows e devolve resposta com fontes. Com o Ollama desligado, devolve 503.
+- [ ] O `.env` não está na imagem (confira com `docker run --rm <imagem> ls -a`).
+- [ ] O tamanho da imagem e a RAM do container estão registrados, e o usuário decidiu que estão aceitáveis.
+- [ ] `pytest` passa localmente e o CI passa no PR.
+
+Ao terminar, marque a etapa 9 no roteiro e troque esta seção pela etapa 10.
 
 ## Pendência: ajustes da geração (PR pequeno e separado, sem misturar com outra etapa)
 Vem das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
