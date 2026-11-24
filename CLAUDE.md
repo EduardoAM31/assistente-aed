@@ -26,12 +26,12 @@ Fluxo:
 - Python 3.14 num venv em `.venv` (ativar com `.venv\Scripts\Activate.ps1`).
 - **Postgres 16 + pgvector 0.8.7** no Docker Compose (serviço `db`, imagem `pgvector/pgvector:pg16`). Configuração vem do `.env`, e o modelo de variáveis está em `.env.example`.
   - Subir: `docker compose up -d`. Parar: `docker compose down`.
-  - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco.
+  - **Nunca rode `docker compose down -v` sem perguntar:** isso apaga o banco (volume `pgdata`, com as 25 notas e os vetores) e o cache dos modelos (volume `modelos`).
   - O `sql/init.sql` só roda quando o volume está vazio. Como o volume já existe, mudanças no `init.sql` são aplicadas à mão, sem apagar nada (o script é idempotente por causa do `IF NOT EXISTS`): `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed`. O PowerShell não aceita `<` para redirecionar a entrada, por isso o `Get-Content` com pipe.
   - **Porta 5433:** neste computador, um PostgreSQL 18 instalado no Windows (serviço `postgresql-x64-18`) já ocupa a porta 5432. Por isso o `.env` usa `POSTGRES_PORT=5433`, e o Compose publica o banco do Docker em `5433:5432`. O `.env.example` continua com 5432, o padrão.
 - **Smart App Control ligado:** o Windows bloqueia DLLs nativas sem reputação. Já aconteceu com o `psycopg[binary]` e com executáveis de teste do gcc (esses rodam no WSL). Ao instalar uma dependência com código nativo, teste o `import` no venv logo em seguida. Na etapa 5, `torch` 2.15.0 (CPU) e `sentence-transformers` 6.3.0 foram instalados no venv (Python 3.14.0) e importam normalmente.
 - **Ollama** roda direto no Windows, fora do Docker, para usar a GPU. Modelo: `qwen2.5:3b`, que roda 100% na GPU, com contexto de 4096 tokens. API em `http://localhost:11434`.
-- Durante o desenvolvimento, a API roda no venv. Ela só entra num container na etapa 9.
+- A API pode rodar no venv (`uvicorn app.main:app --reload`) ou no container `api` do Compose (veja a seção "Docker (etapa 9)"). As duas usam a porta 8000, então rode uma de cada vez.
 - O CI (GitHub Actions) roda em Ubuntu.
 
 ## Convenções de código
@@ -96,90 +96,41 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 9 (Docker)
-Objetivo (do roteiro): o `Dockerfile` da API, com o torch só para CPU, e o Compose completo.
+## Etapa atual: 10 (avaliação)
+Objetivo (do roteiro): o `perguntas.jsonl`, feito manualmente pelo usuário, e o `avaliar.py`, calculando o recall@3 da busca.
 
-**O que a etapa 8 deixou pronto:**
-- **170 testes:**
-  - 153 rodam sem banco;
-  - 17 de integração (marcador `integracao`) rodam no banco **`aed_teste`**, nunca no `aed`. O `tests/conftest.py` troca o banco antes de importar o `app` e recusa limpar qualquer banco cujo nome não termine em `_teste`.
-- **Fakes** no `conftest.py`: `ModeloFalso`, com vetores previsíveis por palavra-chave, e `LLMFalso`, que guarda o contexto recebido. As fixtures `fakes`, `banco_limpo` e `cliente` montam os testes.
-- **Banco de teste local:** criado uma vez com `docker compose exec db psql -U rag -d aed -c "CREATE DATABASE aed_teste"` e depois `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed_teste`. Sem o banco no ar, os testes de integração são pulados localmente. No CI (`CI=true`), eles falham.
-- **503 com mensagem clara**, num tratamento único em `main.py`, quando o banco está fora do ar (`InterfaceError` do pg8000) ou quando o modelo de embedding não pode ser carregado (`ErroModeloEmbedding`, que embrulha o `OSError` do sentence-transformers).
-- **A pergunta tem no máximo 500 caracteres** (`TAMANHO_MAXIMO_PERGUNTA`, em `app/schemas.py`), no `POST /perguntas` e no `GET /busca`.
-- **`.github/workflows/testes.yml`:** roda em PR e em push na `main`, com Ubuntu, Python 3.14, pgvector como service container, `cp .env.example .env` e o `torch==2.15.0` pelo índice CPU antes do `requirements.txt`.
-- **Medido no primeiro run do CI (PR #7):**
-  - job de 96 s, dos quais 68 s são a instalação do torch e das dependências;
-  - 170 testes passaram em 2,4 s.
+**O que já existe:**
+- O `avaliacao/perguntas_rascunho.md`, escrito pelo usuário antes das notas, cobre as duas partes do corpus. O `baseline_com_rag.json` e o `baseline_sem_rag.md` são para a comparação do README.
+- `busca.buscar(pergunta, k)` devolve os k chunks mais próximos, com `nome_arquivo` e `secao`, que são exatamente o rótulo da avaliação. A rota `GET /busca` faz o mesmo pela API.
+- O banco `aed` tem as 25 notas e 324 chunks (MiniLM, 60/10), todos com vetor.
+- As regras da avaliação estão na seção "Avaliação" acima: o rótulo é a nota e a seção, conta acerto quando algum dos 3 primeiros chunks vem da seção correta, e as perguntas "sem resposta no corpus" ficam fora do cálculo.
 
-  No segundo run, com o cache de pip, o job levou 68 s (37 s de instalação) e os 170 testes, 1,4 s.
+**O que fazer nesta etapa:**
+- **`avaliacao/perguntas.jsonl`:** quem escreve é o usuário, à mão. **O Claude não cria, não completa e não reescreve esse arquivo.** Uma linha JSON por pergunta, com a pergunta e o rótulo (a nota e a seção correta, ou "sem resposta no corpus").
+- **`avaliacao/avaliar.py`:**
+  - lê o `perguntas.jsonl`;
+  - confere que cada rótulo existe no corpus (a nota e o título exato da seção `##`), para pegar erros de digitação antes de medir;
+  - busca os 3 primeiros chunks de cada pergunta rotulada e calcula o recall@3;
+  - mostra as perguntas que erraram, com as seções que vieram no lugar.
+- **Registrar o resultado** com o modelo de embedding, o chunking, a data e o número de perguntas. Só entra no README o que for medido.
 
-  Instalar o torch no CI ficou mantido. A alternativa de não instalar o `torch` e o `sentence-transformers` no CI continua possível, e a escolha é do usuário.
-- **Não entrou:** a troca do `SELECT` antes do upsert por `RETURNING (xmax = 0)`, que era opcional.
+**A decidir antes de começar:**
+- o formato exato do `perguntas.jsonl`: os nomes dos campos e como marcar "sem resposta no corpus";
+- se o `avaliar.py` chama `busca.buscar` direto, em Python, ou a rota `GET /busca` da API;
+- onde e em que formato guardar o resultado de cada rodada, já pensando nas 6 combinações da etapa 11;
+- se o `avaliar.py` ganha testes com fakes, como o resto do projeto.
 
-**O que fazer nesta etapa:** o `Dockerfile` e o `.dockerignore` da API, o serviço `api` no `docker-compose.yml` ao lado do `db`, e o teste de ponta a ponta com tudo em container (a API no Docker, o Ollama no Windows).
-
-**Padrões sugeridos para a etapa 9 (confirme com o usuário antes de implementar):**
-- **Imagem:** `python:3.14-slim` (confira que a tag existe; o CI usa o Python 3.14). Não use Alpine, porque o torch precisa de glibc. Instale o `torch==2.15.0` pelo índice CPU antes do `requirements.txt` (`pip install --no-cache-dir`), como no CI. Copie primeiro o `requirements.txt` e instale, para essa camada ficar em cache, e só depois copie o `app/`. **Só o `app/` vai para a imagem:** as notas entram pela API (`POST /documentos`), e o `sql/init.sql` é do serviço `db`.
-- **`.dockerignore`:** `.env`, `.venv`, `.git`, `__pycache__`, `tests`, `corpus`, `avaliacao` e `scripts`. O `.env` nunca entra na imagem.
-- **Usuário sem privilégios de root**, se não complicar: crie um usuário `app`, defina `HF_HOME=/modelos` e crie `/modelos` na imagem com esse dono, para o volume nomeado herdar a permissão. Se complicar, rode como root e registre isso como limitação.
-- **Comando:** `uvicorn app.main:app --host 0.0.0.0 --port 8000`, sem `--reload`.
-- **Porta do banco, sem separar variáveis:** o serviço `api` usa `env_file: .env` e, em `environment:`, sobrescreve `POSTGRES_HOST: db` e `POSTGRES_PORT: "5432"`. O `environment` vale mais que o `env_file`, e o `Settings` lê as variáveis de ambiente antes do `.env`. A `POSTGRES_PORT=5433` do `.env` continua servindo só para a porta publicada do `db`.
-- **Ollama no Windows:** `OLLAMA_URL: http://host.docker.internal:11434` em `environment:` e `extra_hosts: ["host.docker.internal:host-gateway"]` (necessário no Linux, inofensivo no Docker Desktop). Se der "connection refused", o Ollama pode estar escutando só em `127.0.0.1`. A saída é `OLLAMA_HOST=0.0.0.0`, que expõe o Ollama na rede local: avise o usuário antes de sugerir.
-- **Modelos de embedding num volume nomeado** (`modelos`, montado em `HF_HOME`), e não baixados no build. A imagem fica menor, o modelo muda com o `.env` nos experimentos da etapa 11, e o download (cerca de 470 MB no MiniLM) acontece uma vez, na primeira chamada de `POST /embeddings` ou `GET /busca`. O cache do Windows não vale no container, que é Linux.
-- **`depends_on` com `condition: service_healthy`** (o `db` já tem healthcheck) e, opcional, um healthcheck da API em `GET /saude`.
-- **Porta 8000 publicada.** Se a API também estiver rodando no venv na 8000, pare uma das duas. Para subir só o banco no dia a dia, use `docker compose up -d db`.
-- **Opcional no CI:** um job que só faz o `docker build` da imagem, para o `Dockerfile` não quebrar sem ninguém ver. Pergunte ao usuário e registre o tempo medido.
-- **RAM:** o WSL2 pode estar limitado a 3 GB no `.wslconfig` (confirme com o usuário), e o banco e a API com torch e o modelo precisam caber nisso. Meça com `docker stats` durante o `POST /embeddings` e registre o valor medido aqui. Não estime.
-
-**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
-1. `.dockerignore` e `Dockerfile`. Rode `docker build` e registre o tamanho (`docker images`) e o tempo.
-2. Serviço `api` no Compose, com as variáveis acima. Rode `docker compose up -d` e confira `GET http://localhost:8000/saude`, que usa o banco por `db:5432`.
-3. Teste manual no `/docs`: enviar uma nota, rodar `POST /embeddings` (o modelo baixa para o volume) e `GET /busca`.
-4. Recriar o container (`docker compose up -d --force-recreate api`) e conferir que o modelo **não** baixa de novo.
-5. `POST /perguntas` com o Ollama rodando no Windows.
-6. Registrar o tamanho da imagem, o uso de RAM e os tempos nesta seção, só com o que foi medido.
-7. Apagar as observações da etapa 9 (porta do banco, Ollama e torch) que ficaram resolvidas.
-
-**Medido nesta etapa (rodando de verdade, Docker Desktop no Windows):**
-- **Imagem `assistente-aed-api`: 2,11 GB**, com build de 132 s na primeira vez (sem cache de camadas). Dos 1,5 GB de pacotes Python, 817 MB são do `torch` (CPU), 131 MB do `transformers` e 110 MB do `scipy`.
-- **Conferido na imagem:**
-  - `/codigo` tem só `app/` e `requirements.txt`, e **o `.env` não está lá**;
-  - o processo roda como o usuário `app`, sem root;
-  - o Python é o 3.14.10, e o torch é o `2.15.0+cpu`, sem CUDA.
-- **Compose:** `db` e `api` sobem *healthy*, e o `GET /saude` responde `{"api":"ok","banco":"ok"}`. Dentro do container, a API usa `db:5432` e `http://host.docker.internal:11434`, e o `.env` continua com 5433 para a porta publicada.
-- **Upload, embeddings e busca pelo container:**
-  - o reenvio da `indice-zero.md`, com o mesmo conteúdo, deu 200, e o banco continuou com 324 chunks;
-  - o `POST /embeddings` gerou os 12 vetores em 36,6 s, contando o **download do MiniLM para o volume `modelos` (458 MB)**;
-  - o `GET /busca` deu as mesmas distâncias da API no venv do Windows.
-- **Recriar o container** (`docker compose up -d --force-recreate api`): o volume continuou com 458 MB, e o modelo carregou com `HF_HUB_OFFLINE=1`, sem internet. A primeira busca levou 6,6 s, carregando o modelo do volume, contra 36,6 s com o download.
-- **Ollama:**
-  - `POST /perguntas` pelo container chegou ao Ollama no Windows e devolveu respostas com fontes iguais às do `GET /busca`;
-  - **não foi preciso `OLLAMA_HOST=0.0.0.0`**: o Ollama continua escutando só em `127.0.0.1`, e o Docker Desktop encaminha o `host.docker.internal`;
-  - com o Ollama desligado, a rota deu 503 com a mensagem de conexão, e o `/saude` continuou ok.
-- **RAM** (`docker stats`, numa VM de 2,84 GiB):
-  - a API teve **pico de 1.236 MiB** durante o download do modelo, o `POST /embeddings` dos 12 chunks e as buscas, e fica em **840 MiB** parada, com o modelo carregado;
-  - o `db` usa cerca de 58 MiB.
-
-  Um `POST /embeddings?refazer=true` dos 324 chunks não foi medido no container, porque recalcularia todos os vetores do banco `aed`.
-- **Decisão do usuário:** o tamanho da imagem e o uso de RAM são aceitáveis.
-- **CI:** o job `imagem`, no `testes.yml`, roda em paralelo com os testes. Ele monta a imagem, confere que o `.env` não entra nela (cria um `.env` antes do build, para testar o `.dockerignore`) e que `import app.main` funciona dentro da imagem.
-
-**Cuidados:**
-- **Nunca rode `docker compose down -v` sem perguntar.** Com o serviço novo, o `-v` apaga também o volume `modelos`, além do `pgdata` (as 25 notas e os vetores).
-- Não mexa no banco de desenvolvimento `aed` nem no `aed_teste` fora dos testes.
-- O `sql/init.sql` não precisa ser aplicado de novo, porque o volume já existe.
-
-**Pronto quando:**
-- [ ] `docker compose build` e `docker compose up -d` sobem o `db` e a `api`, e `GET /saude` responde que o banco está ok.
-- [ ] Enviar uma nota, rodar `POST /embeddings` e `GET /busca` pelo container funciona.
-- [ ] Depois de recriar o container, o modelo não é baixado de novo.
-- [ ] `POST /perguntas` pelo container chega ao Ollama no Windows e devolve resposta com fontes. Com o Ollama desligado, devolve 503.
-- [ ] O `.env` não está na imagem (confira com `docker run --rm <imagem> ls -a`).
-- [ ] O tamanho da imagem e a RAM do container estão registrados, e o usuário decidiu que estão aceitáveis.
-- [ ] `pytest` passa localmente e o CI passa no PR.
-
-Ao terminar, marque a etapa 9 no roteiro e troque esta seção pela etapa 10.
+## Docker (etapa 9): como usar e o que foi medido
+- **Subir tudo:** `docker compose up -d`, com o `db` e a `api` (porta 8000). **Só o banco, para usar a API no venv:** `docker compose up -d db`, ou `docker compose stop api`. As duas APIs usam a porta 8000.
+- **Dentro do container,** a API usa `db:5432` (o `environment:` do Compose vale mais que o `.env`) e `http://host.docker.internal:11434`. O Ollama não precisou de `OLLAMA_HOST=0.0.0.0`: ele continua escutando só em `127.0.0.1`.
+- **Os modelos de embedding ficam no volume `modelos`** (`HF_HOME=/modelos`), e são baixados na primeira chamada que precisa deles. Depois de recriar o container, o modelo carrega do volume, sem internet (testado com `HF_HUB_OFFLINE=1`).
+- **Medido (Docker Desktop no Windows):**
+  - imagem de **2,11 GB**, com build de 132 s sem cache. 817 MB são do `torch` CPU;
+  - primeiro `POST /embeddings` (12 chunks) em 36,6 s, contando o download de 458 MB do MiniLM. Depois de recriar o container, a primeira busca levou 6,6 s;
+  - RAM, numa VM de 2,84 GiB: a API teve **pico de 1.236 MiB** e fica em **840 MiB** parada, com o modelo carregado. O `db` usa cerca de 58 MiB. O `POST /embeddings?refazer=true` dos 324 chunks não foi medido no container.
+  - **Decisão do usuário:** o tamanho da imagem e o uso de RAM são aceitáveis.
+- **Conferido na imagem:** o `.env` não está nela, o processo roda como o usuário `app` (sem root), o Python é o 3.14.10 e o torch é o `2.15.0+cpu`.
+- **CI:** o job `imagem` monta a imagem, confere que o `.env` não entra nela e que `import app.main` funciona. No PR #8, ele levou 106 s (92 s de build), e o job `testes` levou 89 s (63 s de instalação).
 
 ## Pendência: ajustes da geração (PR pequeno e separado, sem misturar com outra etapa)
 Vem das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
@@ -258,7 +209,7 @@ Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora
 - [x] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
 - [x] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
 - [x] 8. Testes e CI: pytest com fakes e GitHub Actions.
-- [ ] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
+- [x] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
 - [ ] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
 - [ ] 11. Experimentos: modelo de embedding × tamanho de chunk.
 - [ ] 12. README final (diagrama, prints, resultados, limitações, comparação com e sem RAG).
