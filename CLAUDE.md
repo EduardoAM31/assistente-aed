@@ -54,7 +54,7 @@ corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_sem_rag.md, avaliar.py
 sql/        init.sql
 scripts/    contar_tokens.py
-tests/
+tests/       (com conftest.py a partir da etapa 8)
 .github/workflows/testes.yml
 docker-compose.yml, Dockerfile, requirements.txt, .env.example, .gitattributes, README.md
 ```
@@ -116,10 +116,52 @@ Objetivo (do roteiro): pytest com fakes e GitHub Actions.
   - aplicar o `sql/init.sql` antes dos testes.
 - **Nenhum teste pode baixar modelo nem depender do Ollama.**
 
-**A decidir antes de começar:**
-- como os testes de integração preparam e limpam o banco (um banco separado, ou apagar as tabelas antes de cada teste);
-- se os testes de integração ficam marcados, para poderem ser pulados localmente quando o banco não está no ar;
-- em quais eventos o workflow roda (push, pull request ou os dois).
+**Padrões sugeridos para a etapa 8 (confirme com o usuário antes de implementar):**
+- **Banco de teste separado: `aed_teste`.** Os testes de integração apagam as tabelas, então nunca podem rodar no banco de desenvolvimento (`aed`), que tem as 25 notas e os vetores. O `tests/conftest.py` define `POSTGRES_DB=aed_teste` **antes de qualquer import de `app`** (o `settings` é criado na importação, e a variável de ambiente vale mais que o `.env`). A fixture que limpa as tabelas só roda se `settings.postgres_db` terminar em `_teste`, e levanta erro se não terminar.
+  - Criação única no ambiente local (PowerShell): `docker compose exec db psql -U rag -d aed -c "CREATE DATABASE aed_teste"` e depois `Get-Content sql/init.sql | docker compose exec -T db psql -U rag -d aed_teste`.
+  - No CI, o service container já nasce com `POSTGRES_DB=aed_teste`.
+- **Marcador `integracao`**, registrado no `pytest.ini`. Localmente, se o banco não responde, esses testes são **pulados** com uma mensagem clara, e `pytest -m "not integracao"` roda só os que não precisam de banco. No CI (a variável `CI=true`, que o GitHub Actions define), eles **falham em vez de pular**, para um problema de banco não passar despercebido.
+- **Fakes.** Troque `busca.modelo_configurado` e `main.provedor_configurado` com `monkeypatch`.
+  - Modelo falso com `encode` que devolve vetores determinísticos de 384 dimensões, escolhidos para a ordem da busca ser previsível (por exemplo, uma palavra-chave decide o eixo do vetor).
+  - LLM falso que guarda o contexto recebido, para o teste conferir que os chunks certos chegaram, e outro que levanta `ErroProvedorLLM`, para o caso do 503.
+- **Workflow em `pull_request` e em `push` na `main`.** Cada etapa entra por PR, e o push na `main` confere o resultado depois do merge.
+- **Python no CI igual ao local (3.14).** Confira que o `actions/setup-python` oferece essa versão. Use o cache de pip.
+- **Dependências no CI:** o `torch` pelo índice CPU primeiro e depois o `requirements.txt`, mesmo que os testes não usem o torch: assim o CI confere que as versões fixadas instalam no Linux, o que o Dockerfile da etapa 9 também vai precisar. Se o tempo ou o espaço pesar, a alternativa é pular `torch` e `sentence-transformers` no CI, já que os testes usam fakes. Diga ao usuário o tempo medido e deixe a escolha com ele.
+- **Variáveis do `.env` no workflow:** `cp .env.example .env`, com `POSTGRES_DB: aed_teste` em `env:` do job. Isso também confere que o `.env.example` está completo, porque o `Settings` exige todas as variáveis. O `psql` vem instalado nos runners Ubuntu (confira) e aplica o `sql/init.sql`.
+
+**Passos sugeridos (pequenos, um commit por passo, explicando as escolhas no fim de cada um):**
+1. `pytest.ini` com o marcador e `tests/conftest.py` com o banco de teste, a proteção do nome e as fixtures (cliente, tabelas limpas, fakes).
+2. Testes de integração:
+   - `GET /saude`;
+   - `POST /documentos`: 201 na primeira vez, 200 no reenvio sem duplicar, 422 para extensão errada, UTF-8 inválido e nota sem frontmatter, e `quantidade_chunks` correto;
+   - o reenvio de uma nota apaga os vetores dela;
+   - `POST /embeddings`: gera os vetores, devolve 0 na segunda chamada, e `?refazer=true` recalcula todos;
+   - `GET /busca`: a ordem pela distância, o `k` respeitado, e 422 para `k=0` e pergunta vazia;
+   - `POST /perguntas`: 409 sem embeddings, 200 com as fontes certas e o contexto certo no LLM falso, 503 quando o provedor falha e 422 para pergunta vazia ou só com espaços.
+3. Correções pequenas que os testes de integração vão expor (pendências de revisões anteriores), cada uma com teste:
+   - **banco fora do ar** vira **503 com mensagem clara** nas rotas que usam o banco. O erro do pg8000 nesse caso é `pg8000.exceptions.InterfaceError` (o `db.banco_responde` já o trata). Prefira um único tratamento em `main.py` a repetir `try/except` em cada rota. Faça o mesmo para o modelo de embedding que não pôde ser baixado.
+   - **tamanho máximo da pergunta** em `PerguntaEntrada` (500 a 1000 caracteres). Com um prompt maior que `OLLAMA_NUM_CTX`, o Ollama corta o começo do texto sem avisar, e as instruções do `system` podem se perder.
+   - `test_importar_embeddings_nao_carrega_o_torch` confere `sys.modules` e depende da ordem dos testes: se outro teste importar o torch, ele falha. Faça a checagem num subprocesso (`python -c`).
+   - o aviso de `httpx` obsoleto no `TestClient`: conferir ao rodar os testes de integração. Num teste simples feito na revisão do PR #6 (fastapi 0.165.0, httpx 0.28.1), nenhum aviso apareceu.
+   - opcional: no upsert de `db.salvar_documento`, trocar o `SELECT` antes do `INSERT` por `RETURNING (xmax = 0) AS criado`, que diz se a linha foi criada ou atualizada numa consulta só.
+4. `.github/workflows/testes.yml`.
+5. Abrir o PR e conferir no GitHub que o workflow passa. Registre o tempo do job.
+
+**Pronto quando:**
+- [ ] `pytest` passa no ambiente local com o banco de teste, e `pytest -m "not integracao"` passa sem banco.
+- [ ] Rodar a suíte inteira não muda nada no banco `aed` (confira `SELECT count(*) FROM chunks;` antes e depois).
+- [ ] Com o banco parado, as rotas respondem 503 com mensagem clara (testado).
+- [ ] O workflow passa no GitHub, num PR.
+- [ ] Nenhum teste baixa modelo nem chama o Ollama.
+
+Ao terminar, marque a etapa 8 no roteiro e troque esta seção pela etapa 9.
+
+**Pendência fora desta etapa: ajustes da geração (PR pequeno e separado, antes ou depois da etapa 8, sem misturar com o CI).** Vêm das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
+- Resposta cortada pelo `num_predict`: subir `LLM_NUM_PREDICT` para 400 a 512 e pedir no prompt só as linhas principais do exemplo, sem `#include` e `main`, e sem copiar o trecho inteiro. Os exemplos das notas são programas completos e passam do limite de 6 linhas que o prompt pede. Opcional: um campo `cortada` na resposta da API quando `done_reason` for `length`.
+- Falso "não sei": dizer "não sei" só se nenhum trecho tratar do assunto, e responder com o que os trechos dizem quando trazem a resposta só em parte. Teste nas duas direções (perguntas fora do corpus e perguntas do corpus), com 1 ou 2 rodadas no máximo.
+- Os outros 2 problemas (detalhe errado sobre a lista encadeada e resposta vaga sobre laços aninhados) são limitações do modelo de 3B e vão para o README. **Não edite as notas para corrigi-los.**
+- Não troque o `qwen2.5:3b`: a comparação com e sem RAG do README usa esse modelo.
+- Depois do ajuste, repita as mesmas perguntas e outras que não foram usadas no ajuste, e registre o que melhorou e o que não melhorou. A qualidade das respostas é avaliada só por observação, e a única métrica do projeto é o recall@3 da busca.
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
