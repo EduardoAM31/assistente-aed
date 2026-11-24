@@ -86,7 +86,7 @@ O programa mostra Ana, Bruno e Carlos nessa ordem, embora os pares tenham sido e
 
 ## Exemplo de uso de map em C++: contar quantas vezes cada palavra aparece
 
-Contar ocorrências é o uso mais comum de um `map` em C++. Aqui, o operador `[]` criar a chave com 0 é justamente o que se quer:
+Contar ocorrências é o uso mais comum de um `map` em C++. Aqui, o fato de o operador [] criar a chave com 0 é justamente o que se quer:
 
 ```cpp
 #include <iostream>
