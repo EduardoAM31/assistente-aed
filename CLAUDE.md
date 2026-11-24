@@ -162,6 +162,8 @@ Objetivo (do roteiro): o `Dockerfile` da API, com o torch só para CPU, e o Comp
   - o `db` usa cerca de 58 MiB.
 
   Um `POST /embeddings?refazer=true` dos 324 chunks não foi medido no container, porque recalcularia todos os vetores do banco `aed`.
+- **Decisão do usuário:** o tamanho da imagem e o uso de RAM são aceitáveis.
+- **CI:** o job `imagem`, no `testes.yml`, roda em paralelo com os testes. Ele monta a imagem, confere que o `.env` não entra nela (cria um `.env` antes do build, para testar o `.dockerignore`) e que `import app.main` funciona dentro da imagem.
 
 **Cuidados:**
 - **Nunca rode `docker compose down -v` sem perguntar.** Com o serviço novo, o `-v` apaga também o volume `modelos`, além do `pgdata` (as 25 notas e os vetores).
