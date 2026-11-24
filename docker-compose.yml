@@ -14,5 +14,32 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       retries: 10
+
+  api:
+    build: .
+    env_file: .env
+    # Estes valores valem mais que os do .env. Dentro do Docker, a API fala com o banco
+    # pelo nome do serviço e pela porta interna (o POSTGRES_PORT do .env é a porta
+    # publicada no Windows), e com o Ollama, que roda no Windows, fora do Docker.
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # necessário no Linux, inofensivo no Docker Desktop
+    ports:
+      - "8000:8000"
+    volumes:
+      - modelos:/modelos   # cache dos modelos de embedding (HF_HOME no Dockerfile)
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/saude')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
+  modelos:

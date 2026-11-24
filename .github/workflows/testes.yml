@@ -54,3 +54,22 @@ jobs:
       - name: Roda os testes
         # O GitHub Actions define CI=true: sem banco, os testes de integração falham em vez de pular.
         run: pytest -v
+
+  # Roda em paralelo com os testes, para o Dockerfile não quebrar sem ninguém ver.
+  imagem:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cria um .env, para conferir que o .dockerignore o deixa fora da imagem
+        run: cp .env.example .env
+
+      - name: Monta a imagem da API
+        run: docker build -t assistente-aed-api .
+
+      - name: Confere que o .env não entrou na imagem
+        run: docker run --rm assistente-aed-api sh -c 'test ! -e /codigo/.env'
+
+      - name: Confere que a API importa dentro da imagem
+        # As variáveis vêm do .env.example: importar o app não conecta no banco.
+        run: docker run --rm --env-file .env.example assistente-aed-api python -c "import app.main"

@@ -1,0 +1,11 @@
+# Só o app/ e o requirements.txt entram na imagem. O .env nunca entra.
+.env
+.venv
+.git
+**/__pycache__
+.pytest_cache
+.claude
+tests
+corpus
+avaliacao
+scripts
