@@ -31,9 +31,19 @@ class ResultadoBusca(BaseModel):
     texto: str
 
 
+# Uma pergunta de iniciante cabe com folga em 500 caracteres. O limite evita que um
+# prompt maior que OLLAMA_NUM_CTX faça o Ollama cortar o começo, onde estão as instruções.
+TAMANHO_MAXIMO_PERGUNTA = 500
+
+
 class PerguntaEntrada(BaseModel):
     # strip_whitespace tira os espaços das pontas: uma pergunta só com espaços dá 422.
-    pergunta: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    pergunta: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=TAMANHO_MAXIMO_PERGUNTA
+        ),
+    ]
 
 
 class Fonte(BaseModel):

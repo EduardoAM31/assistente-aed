@@ -10,6 +10,10 @@ from functools import lru_cache
 DIMENSAO_ESPERADA = 384
 
 
+class ErroModeloEmbedding(Exception):
+    """O modelo de embedding não pôde ser carregado (por exemplo, sem internet na 1ª vez)."""
+
+
 @lru_cache(maxsize=1)
 def carregar_modelo(nome: str, dispositivo: str):
     """Carrega o modelo uma vez só e reaproveita nas próximas chamadas.
@@ -22,7 +26,15 @@ def carregar_modelo(nome: str, dispositivo: str):
     # e não ao subir a API (a RAM é de 8 GB).
     from sentence_transformers import SentenceTransformer
 
-    modelo = SentenceTransformer(nome, device=dispositivo)
+    try:
+        modelo = SentenceTransformer(nome, device=dispositivo)
+    except OSError as erro:
+        # É o erro do sentence-transformers quando não acha o modelo nem baixa os arquivos.
+        raise ErroModeloEmbedding(
+            f"Não foi possível carregar o modelo de embedding {nome}. Confira o "
+            "EMBEDDING_MODELO no .env e a conexão com a internet (na primeira vez, "
+            f"o modelo é baixado do Hugging Face). Erro: {erro}"
+        ) from erro
     conferir_dimensao(modelo, nome)
     return modelo
 
