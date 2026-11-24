@@ -58,8 +58,16 @@ def fakes(monkeypatch):
     return {"modelo": modelo, "llm": llm}
 
 
+@pytest.fixture(scope="session")
+def banco_responde() -> bool:
+    """Testa a conexão uma vez só por execução (com o banco parado, cada tentativa demora)."""
+    from app import db
+
+    return db.banco_responde()
+
+
 @pytest.fixture
-def banco_limpo():
+def banco_limpo(banco_responde):
     """Garante que o banco é o de teste, que ele responde e que as tabelas estão vazias."""
     from app import db
     from app.config import settings
@@ -69,7 +77,7 @@ def banco_limpo():
             f"Os testes de integração apagam as tabelas e só rodam num banco *_teste, "
             f"mas o banco configurado é {settings.postgres_db!r}."
         )
-    if not db.banco_responde():
+    if not banco_responde:
         mensagem = (
             f"O banco {settings.postgres_db} não responde em "
             f"{settings.postgres_host}:{settings.postgres_port}. Suba o Postgres "
