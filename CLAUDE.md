@@ -141,6 +141,28 @@ Objetivo (do roteiro): o `Dockerfile` da API, com o torch só para CPU, e o Comp
 6. Registrar o tamanho da imagem, o uso de RAM e os tempos nesta seção, só com o que foi medido.
 7. Apagar as observações da etapa 9 (porta do banco, Ollama e torch) que ficaram resolvidas.
 
+**Medido nesta etapa (rodando de verdade, Docker Desktop no Windows):**
+- **Imagem `assistente-aed-api`: 2,11 GB**, com build de 132 s na primeira vez (sem cache de camadas). Dos 1,5 GB de pacotes Python, 817 MB são do `torch` (CPU), 131 MB do `transformers` e 110 MB do `scipy`.
+- **Conferido na imagem:**
+  - `/codigo` tem só `app/` e `requirements.txt`, e **o `.env` não está lá**;
+  - o processo roda como o usuário `app`, sem root;
+  - o Python é o 3.14.10, e o torch é o `2.15.0+cpu`, sem CUDA.
+- **Compose:** `db` e `api` sobem *healthy*, e o `GET /saude` responde `{"api":"ok","banco":"ok"}`. Dentro do container, a API usa `db:5432` e `http://host.docker.internal:11434`, e o `.env` continua com 5433 para a porta publicada.
+- **Upload, embeddings e busca pelo container:**
+  - o reenvio da `indice-zero.md`, com o mesmo conteúdo, deu 200, e o banco continuou com 324 chunks;
+  - o `POST /embeddings` gerou os 12 vetores em 36,6 s, contando o **download do MiniLM para o volume `modelos` (458 MB)**;
+  - o `GET /busca` deu as mesmas distâncias da API no venv do Windows.
+- **Recriar o container** (`docker compose up -d --force-recreate api`): o volume continuou com 458 MB, e o modelo carregou com `HF_HUB_OFFLINE=1`, sem internet. A primeira busca levou 6,6 s, carregando o modelo do volume, contra 36,6 s com o download.
+- **Ollama:**
+  - `POST /perguntas` pelo container chegou ao Ollama no Windows e devolveu respostas com fontes iguais às do `GET /busca`;
+  - **não foi preciso `OLLAMA_HOST=0.0.0.0`**: o Ollama continua escutando só em `127.0.0.1`, e o Docker Desktop encaminha o `host.docker.internal`;
+  - com o Ollama desligado, a rota deu 503 com a mensagem de conexão, e o `/saude` continuou ok.
+- **RAM** (`docker stats`, numa VM de 2,84 GiB):
+  - a API teve **pico de 1.236 MiB** durante o download do modelo, o `POST /embeddings` dos 12 chunks e as buscas, e fica em **840 MiB** parada, com o modelo carregado;
+  - o `db` usa cerca de 58 MiB.
+
+  Um `POST /embeddings?refazer=true` dos 324 chunks não foi medido no container, porque recalcularia todos os vetores do banco `aed`.
+
 **Cuidados:**
 - **Nunca rode `docker compose down -v` sem perguntar.** Com o serviço novo, o `-v` apaga também o volume `modelos`, além do `pgdata` (as 25 notas e os vetores).
 - Não mexa no banco de desenvolvimento `aed` nem no `aed_teste` fora dos testes.
@@ -221,15 +243,6 @@ Feitas rodando o código. A medição atual é a da etapa 7, com as 25 notas. A 
 
 - **`max_seq_length`:** 128 no MiniLM e 512 no e5-small. **Dimensão 384 nos dois**, conferida ao carregar cada modelo: `get_embedding_dimension()` no código e `vector_dims(embedding)` no banco.
 - Os números de tokens vêm do `scripts/contar_tokens.py`, que lê o modelo, o prefixo de documento e o dispositivo do `.env`, como a API. Rode na raiz do projeto com `python -m scripts.contar_tokens`. Para medir o e5 sem mexer no `.env`, defina `EMBEDDING_MODELO` e `EMBEDDING_PREFIXO_DOCUMENTO` como variáveis de ambiente antes de rodar.
-
-## Observação para a etapa 9 (Docker)
-O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
-
-## Observação para a etapa 9 (Ollama)
-O Ollama roda no Windows, fora do Docker. Dentro do container, `localhost` é o próprio container, então a API precisa de `OLLAMA_URL=http://host.docker.internal:11434` (Docker Desktop no Windows). No Linux e no CI não há Ollama: os testes usam o LLM falso.
-
-## Observação para as etapas 8 e 9 (torch)
-No `requirements.txt` fica `torch==2.15.0`. No Ubuntu, o PyPI instala a versão com CUDA, que é muito maior. No CI e no `Dockerfile`, instale antes o torch pelo índice CPU do PyTorch (`pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu`, conferindo que essa versão existe lá) e só depois o `requirements.txt`. Os testes usam embedder falso, então o CI não deve baixar nenhum modelo.
 
 ## Observação para a etapa 10 (não altera as notas)
 Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora de rotular, elas recebem o rótulo "sem resposta no corpus" e ficam fora do cálculo do recall@3. Elas servem para testar se o assistente admite que não sabe, em vez de inventar. Não escreva notas novas para cobrir essas perguntas: decidir isso é uma escolha manual.
