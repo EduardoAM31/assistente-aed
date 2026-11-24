@@ -23,3 +23,34 @@
 - o q é endereço de memoria? 
 - como eu acesso uma posição na matriz usando for?
 - como eu faço pra saber quantas linhas e colunas tem a matriz?
+- qual é a diferença entre alocação estática e dinamica de memória?
+- o que acontece se eu esquecer de liberar a memória alocada dinamicamente?
+- como funciona o free?
+- qual é a diferença entre uma lista encadeada e um vetor?
+- como faço para pegar um valor na lista igual a um vetor?
+- o que é FIFO?
+- o que LIFO?
+- como funciona a entrada e a saida de elementos em uma pilha?
+- o que acontece se eu tentar remover um elemento de uma pilha vazia?
+- como funciona a ordem de entrada e saida dos elementos em uma fila?
+- como faço para remover um elemento que está no início da fila?
+- qual é a principal diferença entre uma pilha e uma fila?
+- em quais situações é melhor utilizar uma pilha em vez de uma fila?
+- como funciona um map?
+- o que acontece se eu adicionar duas vezes a mesma chave em um map?
+- porque so tem um valor de cada em um set?
+- como ter mais de um valor em um set?
+- posso acessar um elemento de um set diretamente pelo indice?
+- qual é a diferença entre guardar dados em um map e em um set?
+- quando é melhor utilizar um set em vez de um map?
+- qual é a diferença entre busca linear e busca binária?
+- por que a busca binaria precisa do vetor ordenado?
+- qual é a diferença entre bubble sort e selection sort?
+- qual funçao de ordenação é mais rapida?
+- a função sort é rapida?
+- como uma função consegue chamar ela mesma?
+- o que é condição de parada?
+- porque minha função não esta parando?
+- o q é complexidade?
+- o que significa dizer que um algoritmo tem complexidade O(n)?
+- por que um algoritmo O(log n) costuma ser mais rápido que um O(n)?
