@@ -96,28 +96,42 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 7 (corpus, parte 2)
-Objetivo (do roteiro): escrever as 12 notas restantes, fazer a ingestão completa e um teste manual com 10 perguntas.
+## Etapa atual: 8 (testes e CI)
+Objetivo (do roteiro): pytest com fakes e GitHub Actions.
 
-**O que a etapa 6 deixou pronto:**
-- `app/geracao/base.py`:
-  - `ProvedorLLM` é uma `Protocol` com `gerar_resposta(pergunta, contexto) -> str`, e `ErroProvedorLLM` é o erro dos provedores.
-  - O prompt fica em `INSTRUCOES` e `montar_mensagens`, com os trechos numerados `[1]`, `[2]`, `[3]`.
-  - `listar_fontes` tira as repetições de (nota, seção).
-- `app/geracao/ollama.py`: `ProvedorOllama` chama `/api/chat` com `stream: false`. Ollama fora do ar, timeout e erro HTTP viram `ErroProvedorLLM` com mensagem clara, e uma resposta cortada (`done_reason: "length"`) gera um aviso no log.
-- `app/geracao/__init__.py`: `criar_provedor(config)` escolhe o provedor pelo `LLM_PROVEDOR`. Só `ollama` é aceito, e o Hugging Face fica para depois.
-- `POST /perguntas` recebe `{"pergunta"}` e devolve `{"resposta", "fontes"}`. Responde 503 com o Ollama fora do ar, 409 sem embeddings e 422 com pergunta vazia ou só com espaços. As `fontes` vêm dos chunks recuperados, e não do texto do modelo.
-- **Valores finais no `.env`:** `LLM_NUM_PREDICT=256`, `LLM_TEMPERATURE=0.1`, `OLLAMA_NUM_CTX=4096` e `LLM_TIMEOUT=120`.
+**O que já existe:**
+- **144 testes** em `tests/`, que rodam sem banco, sem Ollama e sem baixar modelos:
+  - `test_notas.py` e `test_chunking.py`, que também passam as 25 notas do corpus pelo leitor e pelo chunker;
+  - `test_embeddings.py`, com modelo falso;
+  - `test_geracao_base.py`, `test_geracao_ollama.py` (com `httpx.MockTransport`) e `test_geracao_provedor.py`.
+- O `pytest.ini` coloca a raiz do projeto no caminho de importação.
+- Os módulos `app/chunking.py`, `app/notas.py`, `app/embeddings.py` e `app/geracao/` não leem o `.env`, e por isso os testes deles rodam no CI sem configuração. `app/config.py`, `app/db.py`, `app/busca.py` e `app/main.py` leem o `.env` ao serem importados.
 
 **O que fazer nesta etapa:**
-- **Notas:** as 12 da parte 2 (`alocacao-dinamica`, `lista-encadeada`, `pilha`, `fila`, `pilha-vs-fila`, `map`, `set`, `map-vs-set`, `busca-linear-e-binaria`, `ordenacao-simples`, `recursao` e `complexidade-big-o`), seguindo as regras da seção Corpus:
-  - lotes pequenos, com revisão manual antes do commit;
-  - exemplos compilados com `gcc -Wall`, e os de `map` e `set` com `g++`;
-  - **sem ler a pasta `avaliacao/`** enquanto escreve.
-- Antes de escrever, confirme com o usuário que as perguntas de rascunho já cobrem os temas da parte 2. Elas precisam vir antes das notas.
-- **Ingestão completa:** enviar as 25 notas e rodar `POST /embeddings`.
-- **Medições:** refazer a contagem de chunks e de tokens com `python -m scripts.contar_tokens`, nos dois modelos, e atualizar a seção de medições.
-- **Teste manual:** 10 perguntas escolhidas à mão no `/docs`, registrando o que funcionou e o que falhou.
+- **Testes de integração das rotas** (`POST /documentos`, `POST /embeddings`, `GET /busca`, `POST /perguntas`, `GET /saude`) com o `TestClient` do FastAPI e o Postgres de verdade. O embedder e o LLM continuam falsos. Os pontos para trocar por fakes são `busca.modelo_configurado` e `main.provedor_configurado`.
+- **`.github/workflows/testes.yml`** (Ubuntu):
+  - Postgres com pgvector como service container;
+  - instalar o `torch` pelo índice CPU antes do `requirements.txt` (veja a observação das etapas 8 e 9);
+  - definir as variáveis do `.env` no próprio workflow, porque o `.env` não é versionado;
+  - aplicar o `sql/init.sql` antes dos testes.
+- **Nenhum teste pode baixar modelo nem depender do Ollama.**
+
+**A decidir antes de começar:**
+- como os testes de integração preparam e limpam o banco (um banco separado, ou apagar as tabelas antes de cada teste);
+- se os testes de integração ficam marcados, para poderem ser pulados localmente quando o banco não está no ar;
+- em quais eventos o workflow roda (push, pull request ou os dois).
+
+## Teste manual da etapa 7
+Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
+- **Busca:** nas 9 perguntas cobertas pelas notas, as fontes vieram da nota esperada. Em todas as 10, as `fontes` bateram com o `GET /busca`.
+- **Respostas corretas e curtas (6):** pilha × fila, `malloc(10)`, chave no `map` sem criar (`count`, `find` e `contains`), por que a busca binária precisa do vetor ordenado e recursão sem caso base. A pergunta fora do corpus (Dijkstra) também acertou, com "Não sei responder isso com base nas notas."
+- **Respostas com problema (4):**
+  - **"Qual a diferença entre bubble sort e insertion sort?"** respondeu "Não sei…", embora a seção de comparação estivesse entre os trechos recebidos. É um falso "não sei".
+  - **"Como tirar números repetidos de um vetor em C++?"** copiou um trecho inteiro, com o exemplo longo, e **foi cortada pelo `num_predict` 256** (`done_reason: "length"`, com o aviso no log). Na etapa 6, nenhuma das 5 perguntas tinha sido cortada.
+  - **"Como eu libero a memória de uma lista encadeada?"** acertou a ideia de guardar o próximo nó antes do `free`, mas disse para "chamar a função `liberar` para cada nó", o que está errado: a função percorre a lista inteira.
+  - **"Dois for um dentro do outro é sempre O(n²)?"** ficou vaga: disse que "depende", sem explicar o caso de tamanhos diferentes (O(n × m)) que a nota traz.
+- **Tempo:** a primeira pergunta levou 13 s, porque carrega os modelos. As outras levaram de 0,3 a 2,8 s.
+- **Para o README e as próximas etapas:** essas falhas são do modelo de 3B, já que a busca trouxe os trechos certos. Ajustes possíveis, sem prometer resultado: um `num_predict` maior, ou proibir no prompt que o modelo copie os trechos.
 
 ## Resultados da geração (etapa 6)
 Medidos rodando o código, com 5 perguntas escolhidas à mão (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas.
@@ -140,9 +154,20 @@ Medidos rodando o código, com 5 perguntas escolhidas à mão (MiniLM, 60/10, k=
 - **Resposta com RAG para a pergunta do baseline:** foi guardada num JSON, com o modelo, os parâmetros e a data (2026-11-23), e entregue ao usuário para ele salvar em `avaliacao/`.
 
 ## Medições registradas (para o README)
-Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depois da parte 2 do corpus (etapa 7).
-- **Chunks:** 230 com 40/8, 155 com 60/10 e 53 sem limite. Também medidos: 110 com 80/15, 103 com 100/15, 79 com 120/20 e 53 com 150/25.
+Feitas rodando o código. A medição atual é a da etapa 7, com as 25 notas. A da etapa 5, com as 13 notas da parte 1, fica como histórico.
+
+**Corpus completo (etapa 7): 25 notas, 107 seções.**
+- **Chunks:** 484 com 40/8, 324 com 60/10 e 107 sem limite. Também medidos: 231 com 80/15, 212 com 100/15, 170 com 120/20 e 113 com 150/25. Com a parte 2, o 150/25 voltou a ser diferente de "sem limite".
+- **No banco, depois da ingestão completa:** 25 documentos e 324 chunks (60/10). São 285 chunks de 22 notas em C e 39 de 3 notas em C++, todos com vetor de 384 dimensões do MiniLM. `POST /embeddings` dos 324 chunks levou 54 s, incluindo o carregamento do modelo.
 - **Tokens por chunk.** O chunk inclui o prefixo `# nota` / `## seção` e, no e5, também `passage: `.
+
+| Config | Chunks | MiniLM: mediana / máx. / acima de 128 | e5-small: mediana / máx. / acima de 512 |
+|---|---|---|---|
+| 40/8 | 484 | 88 / 145 / 8 (2%) | 90 / 147 / 0 |
+| 60/10 | 324 | 118 / 188 / 102 (31%) | 120 / 190 / 0 |
+| sem limite | 107 | 266 / 409 / 107 (100%) | 268 / 411 / 0 |
+
+**Histórico (etapa 5): 13 notas da parte 1, 53 seções.**
 
 | Config | Chunks | MiniLM: mediana / máx. / acima de 128 | e5-small: mediana / máx. / acima de 512 |
 |---|---|---|---|
@@ -151,7 +176,7 @@ Feitas na etapa 5, sobre as 13 notas da parte 1, rodando o código. Refaça depo
 | sem limite | 53 | 262 / 321 / 53 (100%) | 264 / 323 / 0 |
 
 - **`max_seq_length`:** 128 no MiniLM e 512 no e5-small. **Dimensão 384 nos dois**, conferida ao carregar cada modelo: `get_embedding_dimension()` no código e `vector_dims(embedding)` no banco.
-- Os números de tokens vêm do `scripts/contar_tokens.py`, que lê o modelo, o prefixo de documento e o dispositivo do `.env`, como a API. Rode na raiz do projeto com `python -m scripts.contar_tokens`. Para medir o e5 sem mexer no `.env`, defina `EMBEDDING_MODELO` e `EMBEDDING_PREFIXO_DOCUMENTO` como variáveis de ambiente antes de rodar. Rodado de novo depois de ir para `scripts/`, ele reproduziu exatamente a tabela acima.
+- Os números de tokens vêm do `scripts/contar_tokens.py`, que lê o modelo, o prefixo de documento e o dispositivo do `.env`, como a API. Rode na raiz do projeto com `python -m scripts.contar_tokens`. Para medir o e5 sem mexer no `.env`, defina `EMBEDDING_MODELO` e `EMBEDDING_PREFIXO_DOCUMENTO` como variáveis de ambiente antes de rodar.
 
 ## Observação para a etapa 9 (Docker)
 O `POSTGRES_PORT` do `.env` serve para duas coisas: a porta publicada pelo Compose e a porta que a API usa para conectar. Dentro do Docker, a API conecta em `db:5432`, então essas duas configurações vão precisar ser separadas.
@@ -172,7 +197,7 @@ Algumas perguntas do rascunho tratam de assuntos que nenhuma nota cobre. Na hora
 - [x] 4. Chunking: por seção `##`, com tamanho máximo e overlap, e o título da nota no começo de cada chunk. Mais os testes unitários.
 - [x] 5. Embeddings e busca: top-k por distância de cosseno (`<=>`) e uma rota de depuração da busca.
 - [x] 6. Geração: interface `gerar_resposta`, provedor Ollama, prompt com trechos numerados e citação, `POST /perguntas`.
-- [ ] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
+- [x] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
 - [ ] 8. Testes e CI: pytest com fakes e GitHub Actions.
 - [ ] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
 - [ ] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
