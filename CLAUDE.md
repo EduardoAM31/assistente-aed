@@ -88,7 +88,18 @@ docker-compose.yml, Dockerfile, .dockerignore, requirements.txt, .env.example, .
 - **Experimentos:** 2 modelos de embedding (`paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) × 3 tamanhos de chunk (máximo de palavras/overlap): **40/8, 60/10 e sem limite**. A tabela de resultados vai no README, com a porcentagem de chunks cortados pelo limite de tokens em cada combinação. Os tamanhos foram escolhidos com a contagem de tokens da etapa 5 e conferidos com as 25 notas na etapa 7 (seção "Medições registradas"). Outras configurações, como 80/15 ou 120/20, podem ser testadas depois. A escolha final é manual.
 - **Prefixos dos modelos de embedding:** o `multilingual-e5-small` exige `passage: ` no começo de cada chunk e `query: ` no começo de cada pergunta. O `paraphrase-multilingual-MiniLM-L12-v2` não usa prefixo. Esses prefixos e o prefixo com os títulos que o chunking coloca em todo chunk (`# <nota>` e `## <seção>`) contam no limite de tokens do modelo, mesmo não contando no limite de palavras do chunking.
 - **Limites de tokens (medidos):** o MiniLM tem `max_seq_length` = 128 e o e5-small tem 512. Texto além do limite é ignorado no cálculo do vetor, sem erro. Só o vetor é afetado: o texto do chunk continua inteiro no banco e vai inteiro para o LLM.
-- **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta será colocada manualmente em `avaliacao/baseline_sem_rag.md`, para comparar com a resposta com RAG no README.
+- **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta está em `avaliacao/baseline_sem_rag.md`, colocada à mão pelo usuário, e a resposta com RAG está em `avaliacao/baseline_com_rag.json`, para a comparação no README.
+- **`avaliacao/perguntas.jsonl` (etapa 10):** foi escrito e rotulado à mão pelo usuário e **está congelado**. Mudar uma pergunta ou um rótulo depois de ver os erros faz a pergunta passar por causa da mudança, e não por causa da busca. Se ele mudar, é uma rodada nova, registrada à parte, e a da etapa 10 continua sendo a referência.
+  - **Formato:** uma linha JSON por pergunta, com `id`, `pergunta`, `nota` (o `nome_arquivo`) e `secao` (o título exato da seção `##`). Uma pergunta que nenhuma nota cobre tem `"sem_resposta": true` e fica fora do recall. Uma variante com erro de digitação tem `variante_de`, com o id da principal, e o mesmo rótulo dela.
+  - **Regras da rotulagem:** uma seção por pergunta. Letra minúscula no lugar de maiúscula não conta como erro de digitação. Já contam abreviação ("q", "pq"), acento faltando, palavra errada ("identação") e palavra faltando. **Não escreva notas para cobrir as perguntas sem resposta:** essa decisão é do usuário.
+- **`avaliacao/avaliar.py`:** rode na raiz, com o venv ativo e o banco no ar, com `python -m avaliacao.avaliar`. Não precisa da API nem do Ollama, e usa o banco do `.env` (o `aed`).
+  - Confere o jsonl e os rótulos no `corpus/` antes de medir. Se um rótulo não existir, para e mostra os títulos que a nota tem.
+  - Busca com `busca.buscar`, com k=3 fixo no script.
+  - Calcula o recall@3 das principais e, à parte, o das variantes, e lista os erros e as perguntas sem resposta.
+  - Grava um JSON em `avaliacao/resultados/` (versionado). O nome do arquivo tem a data, o modelo e o chunking.
+  - **O banco não guarda com qual modelo nem com qual chunking os vetores foram gerados.** Por isso, o `avaliar.py` avisa quando o número de chunks do banco não bate com o que o chunking do `.env` gera para o corpus, e quando o vetor guardado de 5 chunks fica a mais de 0,01 do vetor recalculado com o modelo do `.env`. **Rodada com aviso não vale como medição.**
+  - **Os dois recalls não medem o mesmo grupo de perguntas.** O das variantes vem só das 23 perguntas que têm variante. Para medir o efeito do erro de digitação, compare cada variante com a sua principal (veja "Medições registradas").
+- **Correção de erros de digitação** (corrigir as palavras da pergunta pela similaridade com o vocabulário do corpus): só depois da etapa 11. O "antes" é o recall das variantes da etapa 10.
 
 ## Estilo das respostas do assistente
 As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
@@ -96,58 +107,52 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 10 (avaliação)
-Objetivo (do roteiro): o `perguntas.jsonl`, escrito à mão pelo usuário, e o `avaliar.py`, que calcula o recall@3 da busca. É a primeira medida da busca do projeto e o número de referência para a etapa 11.
+## Etapa atual: 11 (experimentos)
+Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embedding × tamanho de chunk, para escolher a configuração final e montar a tabela do README.
 
 **O que já existe:**
-- `avaliacao/perguntas_rascunho.md`, escrito pelo usuário antes das notas, cobre as duas partes do corpus. `avaliacao/baseline_com_rag.json` guarda a resposta com RAG à pergunta do baseline.
-- **Ainda não existem:** `avaliacao/perguntas.jsonl` e `avaliacao/baseline_sem_rag.md`. O usuário coloca os dois à mão. O baseline sem RAG não é necessário para o `avaliar.py`, só para a comparação do README.
-- `busca.buscar(pergunta, k)` devolve os k chunks mais próximos, com `nome_arquivo` e `secao`, que são exatamente o rótulo da avaliação. A rota `GET /busca` faz o mesmo pela API.
-- O banco `aed` tem as 25 notas e 324 chunks (MiniLM, 60/10), todos com vetor.
+- O `avaliacao/avaliar.py` e o `perguntas.jsonl`, que está congelado (veja a seção "Avaliação").
+- **A referência da etapa 10:** MiniLM com 60/10, com recall@3 de 54,7% nas principais e 34,8% nas variantes (veja "Medições registradas").
+- A contagem de chunks e de tokens das 3 configurações, nos 2 modelos, também está em "Medições registradas". Dela sai a porcentagem de chunks cortados pelo limite de tokens.
+- Hoje, a ingestão das notas só é feita pelo `POST /documentos`, uma nota por vez (pelo `/docs`), e depois pelo `POST /embeddings?refazer=true`.
 
-**Regras da rotulagem** (além das da seção "Avaliação"):
-- O rótulo de cada pergunta é a nota e o título exato da seção `##`. Conta acerto quando algum dos 3 primeiros chunks vem dessa seção.
-- Perguntas que nenhuma nota cobre recebem o rótulo "sem resposta no corpus" e ficam fora do recall@3. Elas servem para ver se o assistente admite que não sabe, em vez de inventar. **Não escreva notas novas para cobri-las:** essa decisão é manual.
-- **Perguntas com erro de digitação:** o usuário escreve também, à mão, versões com erro de digitação de perguntas do conjunto principal (por exemplo, "identação" no lugar de "indentação"), com o mesmo rótulo. Elas são medidas **à parte** e **antes de qualquer correção**: esse é o número de "antes" da ideia de corrigir as palavras da pergunta por similaridade com o vocabulário do corpus, que só será tentada depois da etapa 11. O `avaliar.py` não corrige nada.
+**As 6 combinações:**
+- **Modelos:** `paraphrase-multilingual-MiniLM-L12-v2` (sem prefixo) e `multilingual-e5-small` (com `passage: ` e `query: `).
+- **Tamanhos de chunk:** 40/8, 60/10 e sem limite (`CHUNK_MAX_PALAVRAS=0`).
+- **O MiniLM com 60/10 já foi medido na etapa 10:** não precisa repetir, mas repetir serve para conferir que o processo de reindexar não muda o número.
 
 **O que fazer nesta etapa:**
-- **`avaliacao/perguntas.jsonl`:** quem escreve é o usuário. **O Claude não cria, não completa e não reescreve esse arquivo.**
-- **`avaliacao/avaliar.py`:**
-  - lê o `perguntas.jsonl`;
-  - confere que cada rótulo existe no corpus (a nota e o título exato da seção `##`) antes de medir, e, se não existir, mostra os títulos que a nota tem, para facilitar a correção;
-  - busca os 3 primeiros chunks de cada pergunta rotulada e calcula o recall@3 das perguntas principais e, separado, o das variantes com erro de digitação;
-  - lista as perguntas que erraram, com as seções que vieram no lugar, e as "sem resposta no corpus", sem entrar no cálculo;
-  - grava o resultado da rodada.
+- **Um script para reindexar o banco** com a configuração do `.env`: reenviar as 25 notas, com o chunking do `.env`, e refazer os vetores com o modelo do `.env`. Depois, o `avaliar.py` confere que o banco bate com o `.env`.
+- **Para cada combinação:** trocar o modelo, os prefixos e o chunking no `.env`, reindexar e rodar o `avaliar.py`. Só valem as rodadas sem aviso.
+- **A tabela do README:** uma linha por combinação, com o número de chunks, a porcentagem de chunks cortados pelo limite de tokens e o recall@3 das principais e das variantes.
+- **No fim:** a escolha manual da configuração final, feita pelo usuário. O `.env` e o banco voltam para essa configuração.
 
 **Padrões sugeridos** (o usuário confirma antes de codar):
-- **Formato do `perguntas.jsonl`:** uma linha JSON por pergunta, com campos em português e a `nota` igual ao `nome_arquivo` do banco, para não precisar converter:
-  ```json
-  {"id": 1, "pergunta": "...", "nota": "indice-zero.md", "secao": "título exato da seção ##"}
-  {"id": 2, "pergunta": "...", "sem_resposta": true}
-  {"id": 3, "pergunta": "... com erro de digitação ...", "nota": "indice-zero.md", "secao": "título exato", "variante_de": 1}
-  ```
-  Sem `variante_de`, a pergunta é principal.
-- **O `avaliar.py` chama `busca.buscar` direto**, em Python, e não a rota `GET /busca`: não depende da API no ar, e é a mesma função que a rota usa.
-- **Resultado de cada rodada:** um JSON em `avaliacao/resultados/`, com data, modelo, prefixos, `CHUNK_MAX_PALAVRAS` e `CHUNK_OVERLAP_PALAVRAS`, k, número de perguntas, acertos, recall@3 (principais e variantes) e a lista de erros. A etapa 11 junta esses arquivos na tabela do README.
-- **Testes sem banco e sem modelo,** em `tests/test_avaliar.py`, para as funções puras: ler o JSONL, conferir rótulos e calcular o recall, com resultados de busca falsos.
+- **`scripts/reindexar.py`,** que roda com `python -m scripts.reindexar`, sem a API. Ele chama as mesmas funções que as rotas usam: `ler_nota`, `dividir_em_chunks` e `db.salvar_documento` para cada nota, e depois `busca.gerar_embeddings_dos_chunks(refazer=True)`. Escreve no banco do `.env`, então só roda no `aed`, e mostra antes o modelo e o chunking que vai usar.
+- **A tabela** é montada a partir dos JSONs de `avaliacao/resultados/`, à mão ou com um script pequeno.
+- **Comparação justa das variantes:** a tabela mostra também o recall das principais que têm variante. Na etapa 10, as duas versões dessas 23 perguntas acertaram o mesmo número (8). Isso pode entrar no `avaliar.py` como um terceiro número.
 
 **Cuidados:**
-- **Como rodar:** na raiz, com o venv ativo e o banco no ar (`docker compose up -d db`): `python -m avaliacao.avaliar`. Não precisa da API nem do Ollama. Usa o banco `aed` do `.env`, nunca o `aed_teste`.
-- **O banco não guarda com qual modelo nem com qual chunking os vetores foram gerados.** Se o `.env` mudar sem reenviar as notas e sem rodar `POST /embeddings?refazer=true`, a busca compara vetores de espaços diferentes, sem erro nenhum, e o recall sai errado. O `avaliar.py` deve imprimir o modelo e o chunking do `.env` e o número de chunks do banco. Sugestão, a confirmar: avisar quando o número de chunks do banco não bate com o que o chunking do `.env` gera para o corpus, e quando o vetor guardado de um chunk fica longe do vetor recalculado agora com o mesmo texto (perto de 0 se o modelo for o mesmo).
-- **O primeiro resultado é a referência:** registre-o antes de qualquer ajuste. Não edite notas, chunking nem busca olhando as perguntas que erraram para elas passarem. Só o que foi medido entra no README.
-- **Fora desta etapa:** um script para reenviar as 25 notas a cada combinação da etapa 11 (hoje só pelo `/docs`) fica para a etapa 11.
+- **Reindexar troca todo o conteúdo do banco `aed`.** Nada se perde: as notas estão no `corpus/`. Mas a API passa a responder com a configuração da última reindexação. **Nunca use `docker compose down -v`** para limpar o banco.
+- **O `.env` precisa mudar inteiro de uma vez:** o modelo, os 2 prefixos e o chunking. O e5 sem os prefixos dá um recall errado, sem erro nenhum. O `avaliar.py` avisa sobre vetores do banco de outro modelo, mas não percebe um prefixo de pergunta esquecido.
+- **RAM:** o e5-small também gera vetores de 384 dimensões, mas o uso de RAM dele ainda não foi medido. Na primeira vez, ele é baixado do Hugging Face.
+- **Não ajuste notas, perguntas, rótulos nem a busca** olhando os erros. Só o que foi medido entra no README.
+- **Observação da etapa 10, sem promessa de resultado:** com 60/10, em 12 dos 24 erros das principais a mesma seção ocupou mais de uma das 3 posições. Sem limite, cada seção é um chunk só, mas no MiniLM todos esses chunks passam dos 128 tokens.
 
-**A decidir (é do usuário):** se uma pergunta que dois trechos respondem (por exemplo, nas notas vizinhas for × while) aceita só uma seção ou uma lista de seções. A regra atual é uma seção por pergunta.
+**A decidir (é do usuário):**
+- se o `avaliar.py` ganha o recall das principais que têm variante;
+- se uma pergunta que duas seções respondem passa a aceitar uma lista de seções. **Decidir isso olhando os erros da etapa 10 infla o recall.** Se mudar, todas as combinações são medidas de novo, com a mesma regra;
+- a configuração final, escolhida à mão.
+
+**Fora desta etapa:** a correção de erros de digitação (depois da etapa 11) e o PR dos ajustes da geração.
 
 **Pronto quando:**
-- [ ] O `perguntas.jsonl` foi escrito à mão pelo usuário, com as perguntas principais, as "sem resposta no corpus" e as variantes com erro de digitação.
-- [ ] `python -m avaliacao.avaliar` roda sem a API e sem o Ollama, e para com mensagem clara se um rótulo não existe no corpus.
-- [ ] Mostra o recall@3 das principais e o das variantes separados, as perguntas que erraram e as sem resposta fora do cálculo.
-- [ ] O resultado é gravado com data, modelo, chunking, k e número de perguntas.
-- [ ] `pytest` passa, com os testes do `avaliar.py`.
-- [ ] O recall@3 da primeira rodada está registrado na seção "Medições registradas", sem ajuste prévio.
+- [ ] As 6 combinações têm um JSON em `avaliacao/resultados/`, sem aviso.
+- [ ] A tabela com chunks, % cortados e recall@3 das principais e das variantes está em "Medições registradas".
+- [ ] A configuração final foi escolhida pelo usuário, e o `.env` e o banco voltaram para ela.
+- [ ] `pytest` passa.
 
-Ao terminar, marque a etapa 10 no roteiro e troque esta seção pela etapa 11.
+Ao terminar, marque a etapa 11 no roteiro e troque esta seção pela etapa 12.
 
 ## Docker (etapa 9): como usar e o que foi medido
 - **Subir tudo:** `docker compose up -d`, com o `db` e a `api` (porta 8000). **Só o banco, para usar a API no venv:** `docker compose up -d db`, ou `docker compose stop api`. As duas APIs usam a porta 8000.
@@ -202,7 +207,21 @@ Medidos rodando o código, com 5 perguntas escolhidas à mão (MiniLM, 60/10, k=
 - **Resposta com RAG para a pergunta do baseline:** foi guardada num JSON, com o modelo, os parâmetros e a data (2026-11-23), e entregue ao usuário para ele salvar em `avaliacao/`.
 
 ## Medições registradas (para o README)
-Feitas rodando o código. A medição atual é a da etapa 7, com as 25 notas. A da etapa 5, com as 13 notas da parte 1, fica como histórico.
+Feitas rodando o código. A medição atual do chunking é a da etapa 7, com as 25 notas. A da etapa 5, com as 13 notas da parte 1, fica como histórico.
+
+**Recall@3 da busca (etapa 10): a primeira rodada, que é a referência.** Rodada em 2026-11-25, antes de qualquer ajuste. Configuração: MiniLM, 60/10 e k=3, com 324 chunks no banco. Não houve avisos: o número de chunks bate com o corpus, e a distância entre o vetor guardado e o recalculado foi 0,000000. O resultado está em `avaliacao/resultados/2026-11-25_0945_paraphrase-multilingual-MiniLM-L12-v2_60-10.json`.
+- **79 perguntas:** 53 principais, 23 variantes com erro de digitação e 3 sem resposta no corpus.
+- **recall@3 das principais: 54,7% (29 de 53).** **recall@3 das variantes: 34,8% (8 de 23).**
+- **Os dois recalls não medem o mesmo grupo de perguntas.** As principais que têm variante acertaram só 8 de 23 (34,8%), o mesmo número das variantes:
+  - 6 pares acertaram nas duas versões e 13 erraram nas duas;
+  - em 2 pares, só a principal acertou (5 e 16);
+  - em 2 pares, só a variante acertou (1 e 35).
+
+  Neste conjunto, o erro de digitação não mudou o recall total. A diferença entre 54,7% e 34,8% vem das perguntas: as principais que ganharam variante são mais difíceis que a média.
+- **Nos 24 erros das principais:**
+  - 6 trouxeram a nota certa, mas com outra seção: 4, 10, 25, 53, 76 e 78;
+  - em 12, a mesma seção ocupou mais de uma das 3 posições, porque o 60/10 divide a seção em vários chunks.
+- **Sem resposta no corpus:** nas 3 perguntas, o chunk mais perto ficou a uma distância de 0,47 a 0,53.
 
 **Corpus completo (etapa 7): 25 notas, 107 seções.**
 - **Chunks:** 484 com 40/8, 324 com 60/10 e 107 sem limite. Também medidos: 231 com 80/15, 212 com 100/15, 170 com 120/20 e 113 com 150/25. Com a parte 2, o 150/25 voltou a ser diferente de "sem limite".
@@ -236,7 +255,7 @@ Feitas rodando o código. A medição atual é a da etapa 7, com as 25 notas. A 
 - [x] 7. Corpus, parte 2: as 12 notas restantes, ingestão completa e teste manual com 10 perguntas.
 - [x] 8. Testes e CI: pytest com fakes e GitHub Actions.
 - [x] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
-- [ ] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
+- [x] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
 - [ ] 11. Experimentos: modelo de embedding × tamanho de chunk.
 - [ ] 12. README final (diagrama, prints, resultados, limitações, comparação com e sem RAG).
 
