@@ -1,0 +1,894 @@
+{
+  "data": "2026-11-25T10:50:56",
+  "modelo": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "prefixo_documento": "",
+  "prefixo_pergunta": "",
+  "chunk_max_palavras": 0,
+  "chunk_overlap_palavras": 0,
+  "k": 3,
+  "avisos": [],
+  "principais": {
+    "perguntas": 53,
+    "acertos": 32,
+    "recall": 0.6037735849056604,
+    "erros": [
+      {
+        "id": 1,
+        "pergunta": "Quando que eu uso else ou else if?",
+        "esperado": {
+          "nota": "if-else.md",
+          "secao": "Como usar else e else if em C"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Quando usar while em C",
+            "distancia": 0.5855
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.5891
+          },
+          {
+            "nota": "switch-case.md",
+            "secao": "Quando usar switch ou if-else em C",
+            "distancia": 0.6234
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "pergunta": "Por que o for começa no 0?",
+        "esperado": {
+          "nota": "laco-for.md",
+          "secao": "As três partes do laço for em C"
+        },
+        "vieram": [
+          {
+            "nota": "indice-zero.md",
+            "secao": "O índice de um vetor em C é um deslocamento a partir do início",
+            "distancia": 0.4405
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "Como percorrer um vetor em C com um for que começa em 0",
+            "distancia": 0.4691
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "Em C, v[i] é o mesmo que *(v + i)",
+            "distancia": 0.4905
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "pergunta": "O que acontece quando eu faço while(true)?",
+        "esperado": {
+          "nota": "laco-while.md",
+          "secao": "Laço infinito com while em C: por que acontece"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.5038
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Quando usar while em C",
+            "distancia": 0.5598
+          },
+          {
+            "nota": "laco-while.md",
+            "secao": "O laço do-while em C roda pelo menos uma vez",
+            "distancia": 0.6575
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "pergunta": "qual a diferença do while pro do while?",
+        "esperado": {
+          "nota": "laco-while.md",
+          "secao": "O laço do-while em C roda pelo menos uma vez"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.4291
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Quando usar while em C",
+            "distancia": 0.4423
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Em C, todo for pode ser escrito como while",
+            "distancia": 0.4996
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "pergunta": "Por que eu tenho que usar indentação?",
+        "esperado": {
+          "nota": "indentacao-e-chaves.md",
+          "secao": "Boas práticas de chaves e indentação em C"
+        },
+        "vieram": [
+          {
+            "nota": "alocacao-dinamica.md",
+            "secao": "Como liberar memória com free em C: vazamento e ponteiro solto",
+            "distancia": 0.7561
+          },
+          {
+            "nota": "indentacao-e-chaves.md",
+            "secao": "Em C, a indentação não muda o funcionamento do programa",
+            "distancia": 0.7758
+          },
+          {
+            "nota": "lista-encadeada.md",
+            "secao": "Diferença entre lista encadeada e vetor em C",
+            "distancia": 0.7852
+          }
+        ]
+      },
+      {
+        "id": 23,
+        "pergunta": "O que acontece se eu imprimir a posição -1 do vetor?",
+        "esperado": {
+          "nota": "erros-com-vetores.md",
+          "secao": "Acessar um vetor em C fora dos limites é comportamento indefinido"
+        },
+        "vieram": [
+          {
+            "nota": "ponteiros.md",
+            "secao": "Ponteiros e vetores em C",
+            "distancia": 0.4488
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "O índice de um vetor em C é um deslocamento a partir do início",
+            "distancia": 0.4507
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "Em C, v[i] é o mesmo que *(v + i)",
+            "distancia": 0.4566
+          }
+        ]
+      },
+      {
+        "id": 28,
+        "pergunta": "Qual a diferença entre \" e '?",
+        "esperado": {
+          "nota": "strings.md",
+          "secao": "Em C, uma string é um vetor de char terminado em '\\0'"
+        },
+        "vieram": [
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "A diferença entre pilha e fila em C está na ordem de saída",
+            "distancia": 0.5857
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.5897
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Em C, todo for pode ser escrito como while",
+            "distancia": 0.5946
+          }
+        ]
+      },
+      {
+        "id": 30,
+        "pergunta": "eu posso pôr minha função depois da main?",
+        "esperado": {
+          "nota": "funcoes.md",
+          "secao": "Como declarar e chamar uma função em C"
+        },
+        "vieram": [
+          {
+            "nota": "fila.md",
+            "secao": "Fila com lista encadeada em C",
+            "distancia": 0.7877
+          },
+          {
+            "nota": "laco-while.md",
+            "secao": "O laço do-while em C roda pelo menos uma vez",
+            "distancia": 0.7956
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.7966
+          }
+        ]
+      },
+      {
+        "id": 32,
+        "pergunta": "A minha função não precisa voltar nada, eu deixo vazio o tipo?",
+        "esperado": {
+          "nota": "funcoes.md",
+          "secao": "Funções void e o return em C"
+        },
+        "vieram": [
+          {
+            "nota": "lista-encadeada.md",
+            "secao": "Como liberar a memória de uma lista encadeada em C",
+            "distancia": 0.7234
+          },
+          {
+            "nota": "fila.md",
+            "secao": "Fila com lista encadeada em C",
+            "distancia": 0.7664
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Pilha cheia e pilha vazia em C: overflow e underflow",
+            "distancia": 0.7834
+          }
+        ]
+      },
+      {
+        "id": 34,
+        "pergunta": "o que é ponteiro?",
+        "esperado": {
+          "nota": "ponteiros.md",
+          "secao": "O que é um ponteiro em C e os operadores & e *"
+        },
+        "vieram": [
+          {
+            "nota": "pilha.md",
+            "secao": "O que é uma pilha (LIFO) em C",
+            "distancia": 0.6935
+          },
+          {
+            "nota": "fila.md",
+            "secao": "O que é uma fila (FIFO) em C",
+            "distancia": 0.7404
+          },
+          {
+            "nota": "ponteiros.md",
+            "secao": "Ponteiros e vetores em C",
+            "distancia": 0.7495
+          }
+        ]
+      },
+      {
+        "id": 35,
+        "pergunta": "O que é endereço de memória?",
+        "esperado": {
+          "nota": "ponteiros.md",
+          "secao": "O que é um ponteiro em C e os operadores & e *"
+        },
+        "vieram": [
+          {
+            "nota": "alocacao-dinamica.md",
+            "secao": "Como liberar memória com free em C: vazamento e ponteiro solto",
+            "distancia": 0.5357
+          },
+          {
+            "nota": "alocacao-dinamica.md",
+            "secao": "calloc e realloc em C: memória zerada e mudança de tamanho",
+            "distancia": 0.5404
+          },
+          {
+            "nota": "alocacao-dinamica.md",
+            "secao": "Por que usar sizeof no malloc em C",
+            "distancia": 0.5545
+          }
+        ]
+      },
+      {
+        "id": 44,
+        "pergunta": "como faço para pegar um valor na lista igual a um vetor?",
+        "esperado": {
+          "nota": "lista-encadeada.md",
+          "secao": "Como percorrer e imprimir uma lista encadeada em C"
+        },
+        "vieram": [
+          {
+            "nota": "vetores.md",
+            "secao": "Como ler e mostrar os elementos de um vetor em C com for",
+            "distancia": 0.5148
+          },
+          {
+            "nota": "ordenacao-simples.md",
+            "secao": "Selection sort em C: escolher o menor que falta",
+            "distancia": 0.5433
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.5489
+          }
+        ]
+      },
+      {
+        "id": 51,
+        "pergunta": "Como funciona a ordem de entrada e saída dos elementos em uma fila?",
+        "esperado": {
+          "nota": "fila.md",
+          "secao": "O que é uma fila (FIFO) em C"
+        },
+        "vieram": [
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "A diferença entre pilha e fila em C está na ordem de saída",
+            "distancia": 0.3446
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.3899
+          },
+          {
+            "nota": "ordenacao-simples.md",
+            "secao": "Insertion sort em C: inserir cada elemento no lugar certo",
+            "distancia": 0.3969
+          }
+        ]
+      },
+      {
+        "id": 53,
+        "pergunta": "como faço para remover um elemento que está no início da fila?",
+        "esperado": {
+          "nota": "fila.md",
+          "secao": "O que é uma fila (FIFO) em C"
+        },
+        "vieram": [
+          {
+            "nota": "fila.md",
+            "secao": "Fila com lista encadeada em C",
+            "distancia": 0.4471
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.5155
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Quando usar pilha e quando usar fila em C",
+            "distancia": 0.5659
+          }
+        ]
+      },
+      {
+        "id": 57,
+        "pergunta": "o que acontece se eu adicionar duas vezes a mesma chave em um map?",
+        "esperado": {
+          "nota": "map.md",
+          "secao": "Como inserir e acessar valores num map em C++"
+        },
+        "vieram": [
+          {
+            "nota": "map-vs-set.md",
+            "secao": "A diferença entre map e set em C++: chave com valor ou só a chave",
+            "distancia": 0.3682
+          },
+          {
+            "nota": "map.md",
+            "secao": "O que é um map em C++ e por que não existe em C",
+            "distancia": 0.4049
+          },
+          {
+            "nota": "map.md",
+            "secao": "Como percorrer um map em C++ em ordem de chave",
+            "distancia": 0.4457
+          }
+        ]
+      },
+      {
+        "id": 58,
+        "pergunta": "Por que só tem um valor de cada em um set?",
+        "esperado": {
+          "nota": "set.md",
+          "secao": "O que é um set em C++"
+        },
+        "vieram": [
+          {
+            "nota": "indice-zero.md",
+            "secao": "O último índice válido de um vetor em C é o tamanho menos 1",
+            "distancia": 0.5253
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Exemplos de O(1), O(n) e O(n²) em C",
+            "distancia": 0.554
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Como comparar O(n), O(n log n) e O(n²) na prática",
+            "distancia": 0.568
+          }
+        ]
+      },
+      {
+        "id": 61,
+        "pergunta": "Posso acessar um elemento de um set diretamente pelo índice?",
+        "esperado": {
+          "nota": "set.md",
+          "secao": "Como percorrer um set em C++: os elementos saem em ordem"
+        },
+        "vieram": [
+          {
+            "nota": "vetores.md",
+            "secao": "Como ler e mostrar os elementos de um vetor em C com for",
+            "distancia": 0.5447
+          },
+          {
+            "nota": "set.md",
+            "secao": "Como inserir e verificar se um elemento está num set em C++",
+            "distancia": 0.5472
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.5523
+          }
+        ]
+      },
+      {
+        "id": 72,
+        "pergunta": "como uma função consegue chamar ela mesma?",
+        "esperado": {
+          "nota": "recursao.md",
+          "secao": "O que é recursão em C"
+        },
+        "vieram": [
+          {
+            "nota": "funcoes.md",
+            "secao": "Como declarar e chamar uma função em C",
+            "distancia": 0.3385
+          },
+          {
+            "nota": "funcoes.md",
+            "secao": "Por que declarar o protótipo de uma função em C",
+            "distancia": 0.4753
+          },
+          {
+            "nota": "funcoes.md",
+            "secao": "Passagem por valor em C: a função recebe uma cópia",
+            "distancia": 0.5172
+          }
+        ]
+      },
+      {
+        "id": 73,
+        "pergunta": "o que é condição de parada?",
+        "esperado": {
+          "nota": "recursao.md",
+          "secao": "O caso base da recursão em C e o que acontece sem ele"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.6014
+          },
+          {
+            "nota": "laco-while.md",
+            "secao": "O laço do-while em C roda pelo menos uma vez",
+            "distancia": 0.6379
+          },
+          {
+            "nota": "switch-case.md",
+            "secao": "Por que o break é necessário no switch em C",
+            "distancia": 0.6524
+          }
+        ]
+      },
+      {
+        "id": 74,
+        "pergunta": "Por que minha função não está parando?",
+        "esperado": {
+          "nota": "recursao.md",
+          "secao": "O caso base da recursão em C e o que acontece sem ele"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.6379
+          },
+          {
+            "nota": "laco-while.md",
+            "secao": "Laço infinito com while em C: por que acontece",
+            "distancia": 0.6645
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Pilha cheia e pilha vazia em C: overflow e underflow",
+            "distancia": 0.6927
+          }
+        ]
+      },
+      {
+        "id": 76,
+        "pergunta": "O que é complexidade?",
+        "esperado": {
+          "nota": "complexidade-big-o.md",
+          "secao": "O que é a notação Big-O na análise de algoritmos"
+        },
+        "vieram": [
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Erros comuns ao calcular a complexidade em C",
+            "distancia": 0.2917
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Exemplos de O(1), O(n) e O(n²) em C",
+            "distancia": 0.3328
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Como comparar O(n), O(n log n) e O(n²) na prática",
+            "distancia": 0.4105
+          }
+        ]
+      }
+    ]
+  },
+  "variantes": {
+    "perguntas": 23,
+    "acertos": 12,
+    "recall": 0.5217391304347826,
+    "erros": [
+      {
+        "id": 8,
+        "pergunta": "pq o for começa no 0?",
+        "esperado": {
+          "nota": "laco-for.md",
+          "secao": "As três partes do laço for em C"
+        },
+        "vieram": [
+          {
+            "nota": "indice-zero.md",
+            "secao": "O índice de um vetor em C é um deslocamento a partir do início",
+            "distancia": 0.4246
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "Como percorrer um vetor em C com um for que começa em 0",
+            "distancia": 0.4451
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "Em C, v[i] é o mesmo que *(v + i)",
+            "distancia": 0.4805
+          }
+        ]
+      },
+      {
+        "id": 17,
+        "pergunta": "porque tenho que usar identação?",
+        "esperado": {
+          "nota": "indentacao-e-chaves.md",
+          "secao": "Boas práticas de chaves e indentação em C"
+        },
+        "vieram": [
+          {
+            "nota": "map.md",
+            "secao": "Como inserir e acessar valores num map em C++",
+            "distancia": 0.713
+          },
+          {
+            "nota": "map-vs-set.md",
+            "secao": "A diferença entre map e set em C++: chave com valor ou só a chave",
+            "distancia": 0.7351
+          },
+          {
+            "nota": "map.md",
+            "secao": "Cuidado com o operador [] do map em C++: ele cria a chave",
+            "distancia": 0.7395
+          }
+        ]
+      },
+      {
+        "id": 24,
+        "pergunta": "o q acontece se eu imprimir a posição -1 do vetor?",
+        "esperado": {
+          "nota": "erros-com-vetores.md",
+          "secao": "Acessar um vetor em C fora dos limites é comportamento indefinido"
+        },
+        "vieram": [
+          {
+            "nota": "ponteiros.md",
+            "secao": "Ponteiros e vetores em C",
+            "distancia": 0.3993
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "O índice de um vetor em C é um deslocamento a partir do início",
+            "distancia": 0.4046
+          },
+          {
+            "nota": "indice-zero.md",
+            "secao": "O último índice válido de um vetor em C é o tamanho menos 1",
+            "distancia": 0.4131
+          }
+        ]
+      },
+      {
+        "id": 26,
+        "pergunta": "pq da problema quando eu acesso a posição n do vetor?",
+        "esperado": {
+          "nota": "indice-zero.md",
+          "secao": "O último índice válido de um vetor em C é o tamanho menos 1"
+        },
+        "vieram": [
+          {
+            "nota": "fila.md",
+            "secao": "Fila circular em C: reaproveitar o espaço do vetor",
+            "distancia": 0.454
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Pilha cheia e pilha vazia em C: overflow e underflow",
+            "distancia": 0.4659
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.4722
+          }
+        ]
+      },
+      {
+        "id": 29,
+        "pergunta": "qual a diferenca entre \" e '?",
+        "esperado": {
+          "nota": "strings.md",
+          "secao": "Em C, uma string é um vetor de char terminado em '\\0'"
+        },
+        "vieram": [
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "A diferença entre pilha e fila em C está na ordem de saída",
+            "distancia": 0.5887
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Em C, todo for pode ser escrito como while",
+            "distancia": 0.5925
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.5952
+          }
+        ]
+      },
+      {
+        "id": 31,
+        "pergunta": "eu posso por minha função depois da main?",
+        "esperado": {
+          "nota": "funcoes.md",
+          "secao": "Como declarar e chamar uma função em C"
+        },
+        "vieram": [
+          {
+            "nota": "laco-while.md",
+            "secao": "O laço do-while em C roda pelo menos uma vez",
+            "distancia": 0.7825
+          },
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.7861
+          },
+          {
+            "nota": "fila.md",
+            "secao": "Fila com lista encadeada em C",
+            "distancia": 0.8013
+          }
+        ]
+      },
+      {
+        "id": 33,
+        "pergunta": "a minha função nao precisa voltar nada, eu deixo vazio o tipo?",
+        "esperado": {
+          "nota": "funcoes.md",
+          "secao": "Funções void e o return em C"
+        },
+        "vieram": [
+          {
+            "nota": "lista-encadeada.md",
+            "secao": "Como liberar a memória de uma lista encadeada em C",
+            "distancia": 0.7276
+          },
+          {
+            "nota": "fila.md",
+            "secao": "Fila com lista encadeada em C",
+            "distancia": 0.7786
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Pilha cheia e pilha vazia em C: overflow e underflow",
+            "distancia": 0.7861
+          }
+        ]
+      },
+      {
+        "id": 52,
+        "pergunta": "como funciona a ordem de entrada e saida dos elementos em uma fila?",
+        "esperado": {
+          "nota": "fila.md",
+          "secao": "O que é uma fila (FIFO) em C"
+        },
+        "vieram": [
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "A diferença entre pilha e fila em C está na ordem de saída",
+            "distancia": 0.3691
+          },
+          {
+            "nota": "pilha-vs-fila.md",
+            "secao": "Onde o elemento entra e sai na pilha e na fila em C",
+            "distancia": 0.4067
+          },
+          {
+            "nota": "ordenacao-simples.md",
+            "secao": "Insertion sort em C: inserir cada elemento no lugar certo",
+            "distancia": 0.4068
+          }
+        ]
+      },
+      {
+        "id": 62,
+        "pergunta": "posso acessar um elemento de um set diretamente pelo indice?",
+        "esperado": {
+          "nota": "set.md",
+          "secao": "Como percorrer um set em C++: os elementos saem em ordem"
+        },
+        "vieram": [
+          {
+            "nota": "vetores.md",
+            "secao": "Como ler e mostrar os elementos de um vetor em C com for",
+            "distancia": 0.4846
+          },
+          {
+            "nota": "set.md",
+            "secao": "Como inserir e verificar se um elemento está num set em C++",
+            "distancia": 0.5092
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Como implementar uma pilha com vetor em C",
+            "distancia": 0.5583
+          }
+        ]
+      },
+      {
+        "id": 75,
+        "pergunta": "porque minha função não esta parando?",
+        "esperado": {
+          "nota": "recursao.md",
+          "secao": "O caso base da recursão em C e o que acontece sem ele"
+        },
+        "vieram": [
+          {
+            "nota": "for-vs-while.md",
+            "secao": "Diferença do continue no for e no while em C",
+            "distancia": 0.6644
+          },
+          {
+            "nota": "laco-while.md",
+            "secao": "Laço infinito com while em C: por que acontece",
+            "distancia": 0.7041
+          },
+          {
+            "nota": "pilha.md",
+            "secao": "Pilha cheia e pilha vazia em C: overflow e underflow",
+            "distancia": 0.7339
+          }
+        ]
+      },
+      {
+        "id": 77,
+        "pergunta": "o q é complexidade?",
+        "esperado": {
+          "nota": "complexidade-big-o.md",
+          "secao": "O que é a notação Big-O na análise de algoritmos"
+        },
+        "vieram": [
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Erros comuns ao calcular a complexidade em C",
+            "distancia": 0.2753
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Exemplos de O(1), O(n) e O(n²) em C",
+            "distancia": 0.3228
+          },
+          {
+            "nota": "complexidade-big-o.md",
+            "secao": "Como comparar O(n), O(n log n) e O(n²) na prática",
+            "distancia": 0.3555
+          }
+        ]
+      }
+    ]
+  },
+  "principais_com_variante": {
+    "perguntas": 23,
+    "acertos": 9,
+    "recall": 0.391304347826087
+  },
+  "sem_resposta": [
+    {
+      "id": 9,
+      "pergunta": "qual a diferença de usar i++ ou ++i no for?",
+      "vieram": [
+        {
+          "nota": "map-vs-set.md",
+          "secao": "A diferença entre map e set em C++: chave com valor ou só a chave",
+          "distancia": 0.5559
+        },
+        {
+          "nota": "map-vs-set.md",
+          "secao": "Quando usar set e quando usar map em C++",
+          "distancia": 0.5669
+        },
+        {
+          "nota": "for-vs-while.md",
+          "secao": "Quando usar for em C",
+          "distancia": 0.579
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "pergunta": "como ter mais de um valor em um set?",
+      "vieram": [
+        {
+          "nota": "set.md",
+          "secao": "Como percorrer um set em C++: os elementos saem em ordem",
+          "distancia": 0.5163
+        },
+        {
+          "nota": "set.md",
+          "secao": "O que é um set em C++",
+          "distancia": 0.5194
+        },
+        {
+          "nota": "complexidade-big-o.md",
+          "secao": "Como comparar O(n), O(n log n) e O(n²) na prática",
+          "distancia": 0.5374
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "pergunta": "a função sort é rápida?",
+      "vieram": [
+        {
+          "nota": "complexidade-big-o.md",
+          "secao": "O que é a notação Big-O na análise de algoritmos",
+          "distancia": 0.5692
+        },
+        {
+          "nota": "complexidade-big-o.md",
+          "secao": "O(log n): por que a busca binária é tão rápida",
+          "distancia": 0.5713
+        },
+        {
+          "nota": "ordenacao-simples.md",
+          "secao": "Comparação entre bubble, selection e insertion sort em C",
+          "distancia": 0.5731
+        }
+      ]
+    }
+  ]
+}
