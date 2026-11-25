@@ -107,69 +107,23 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 12 (README final)
-Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limitações e a comparação com e sem RAG.
+## Projeto concluído
+As 12 etapas do roteiro estão feitas. A configuração final é o e5-small sem limite, com k=3 e o `qwen2.5:3b` (no `.env`, no `.env.example` e no banco). O README final foi revisado pelo usuário, com as correções do ramo `readme-correcoes`, e cada número dele vem de "Medições registradas", da seção do Docker ou dos arquivos de `avaliacao/`.
 
-**O que já existe:**
-- **Resultados medidos:**
-  - o recall@3 das 2 rodadas da etapa 10;
-  - a tabela das 6 combinações da etapa 11, com chunks, % cortados e os 3 recalls;
-  - a contagem de tokens da etapa 7;
-  - as medições do Docker da etapa 9.
+**Origem das perguntas de avaliação** (conferido comparando os arquivos): as 56 perguntas do `perguntas_rascunho.md`, escritas antes das notas, estão todas no `perguntas.jsonl` (55 iguais e 1 só com um acento a mais). As 23 principais que corrigem uma pergunta do rascunho com erro de digitação foram escritas na etapa 10, depois das notas, e a versão do rascunho virou a variante.
 
-  Está tudo em "Medições registradas" e na seção do Docker. **Só esses números entram no README.**
-- **A comparação com e sem RAG:** o `avaliacao/baseline_sem_rag.md` e o `avaliacao/baseline_com_rag.json`, os dois com a pergunta "Por que o índice de vetores em C começa em 0?". A resposta com RAG foi gerada na etapa 6, com o MiniLM e o 60/10.
-- **Observações da geração:** as das etapas 6 e 7, feitas com o MiniLM e o 60/10, e as da seção "Ajustes da geração", feitas com a configuração final e o prompt final. São observações, e não métricas.
-- **A configuração final:** e5-small sem limite, no `.env`, no `.env.example` e no banco.
+**O que resta (nada disso é obrigatório):**
+- **Os 3 prints** (o `/docs`, o `POST /perguntas` e o `avaliar.py`): o usuário decidiu publicar sem eles por agora. Os lugares continuam marcados no README com comentários `<!-- PRINT: ... -->`, que não aparecem na página.
+- **Refinamentos opcionais:** outros tamanhos de chunk (80/15, 120/20), o provedor do Hugging Face e a correção de erros de digitação (só com um conjunto novo de perguntas, veja "Avaliação"). Qualquer mudança na busca exige medir de novo com o `avaliar.py`.
+- **O texto do currículo** sobre o projeto, com os mesmos números do README e nenhum outro.
+- **Ficaram na máquina,** do teste do zero de 2026-11-25: os volumes `aed-clone-teste_pgdata` e `aed-clone-teste_modelos` e a imagem `aed-clone-teste-api`. Apagar é decisão do usuário.
 
-**O que o README precisa ter** (do roteiro e da seção "README" abaixo):
-- o que o projeto faz e o fluxo do RAG (ingestão, chunking, embeddings, pgvector, busca e geração), com um diagrama;
-- como rodar: Docker Compose, Ollama no Windows, `.env`, ingestão das notas e as rotas;
-- os resultados, com os acertos junto da porcentagem e a explicação da revisão dos rótulos e da amostra pequena;
-- a comparação com e sem RAG;
-- as limitações (as do modelo de 3B, as da avaliação e as do corpus);
-- como o projeto foi feito, com honestidade: "notas escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias".
-
-**Limitações que o README precisa dizer** (todas vêm de números ou fatos já registrados):
-- **A configuração final foi escolhida no mesmo conjunto de 79 perguntas que a mede.** O 77,4% é o melhor de 6 combinações medidas nas mesmas perguntas, então tende a ser otimista. A vantagem do e5 sobre o MiniLM aparece nas 3 configurações, e a do "sem limite" sobre o 60/10 é de 2 perguntas.
-- **O conjunto é pequeno** (53 principais, 23 variantes e 3 sem resposta) e foi escrito por uma pessoa só. Os rótulos de 2 perguntas foram revisados depois de ver os erros.
-- **O recall mede só a busca.** A qualidade das respostas do LLM foi avaliada só por observação, em poucas perguntas: 18 com a configuração final (veja "Ajustes da geração").
-- **Corpus pequeno:** 25 notas de C (e `map` e `set` em C++), escritas com auxílio de IA e revisadas à mão. As perguntas de rascunho foram escritas antes das notas, para a busca não ficar fácil com o vocabulário delas, mas a mesma pessoa escreveu as perguntas e revisou as notas.
-- **Os números de RAM, tempo e tamanho da imagem** são do Docker Desktop no Windows, numa VM de 2,84 GiB (a máquina tem 8 GB). Não valem para outra máquina.
-- **O modelo de 3B:** as limitações da seção "Ajustes da geração", que valem para a configuração final. As das seções "Resultados da geração (etapa 6)" e "Teste manual da etapa 7" são da configuração antiga.
-
-**A decidir antes de começar (é do usuário):**
-- ~~A ordem do PR dos ajustes da geração~~ **Decidido: antes do README.** O PR foi feito, e o registro está na seção "Ajustes da geração".
-- **Decidido: o baseline com RAG foi refeito,** em `avaliacao/baseline_com_rag_config_final.json`, pelo `POST /perguntas` da API do container na configuração final. A resposta é de 2026-11-25, com o prompt do commit `62c6f9d`. O arquivo antigo continua lá. A resposta está certa (`v[i]` é `*(v + i)`), mas repete a pergunta no começo.
-- **Decidido:** diagrama em Mermaid, README só em português, e 3 prints (o `/docs`, o `POST /perguntas` e o `avaliar.py`). Os lugares dos prints estão marcados no README com comentários `<!-- PRINT: ... -->`, e quem tira as imagens é o usuário.
-- **Decidido: a carga das notas no Docker** é feita com um laço de `curl` (PowerShell e Bash) que envia as notas para o `POST /documentos`. Isso porque o `.dockerignore` deixa o `corpus/` e o `scripts/` fora da imagem.
-
-**Teste do zero (2026-11-25):** feito num clone novo, com `cp .env.example .env` e só o `POSTGRES_PORT` trocado para 5434, porque a 5432 está ocupada nesta máquina. O projeto do Compose tem outro nome, então tem volumes próprios.
-- **Funcionou:**
-  - `docker compose up -d --build`. O build levou 11 s por causa do cache das camadas, então **o tempo de um build sem cache não foi medido de novo**;
-  - o laço de `curl.exe` no PowerShell, com 25 respostas `201`;
-  - o `POST /embeddings`: 107 vetores em 50 s, contando o download do e5;
-  - a pergunta pelo PowerShell, lendo a resposta como UTF-8;
-  - os comandos do Bash no Linux (WSL): o laço, os embeddings e a pergunta;
-  - a criação do `aed_teste`, o `init.sql` pelo PowerShell e o `pytest` (195 testes).
-- **Falhou e foi corrigido no README:**
-  - o `Invoke-RestMethod` do PowerShell 5.1 estraga os acentos da resposta, porque lê como Latin-1;
-  - o `curl -d` com acentos no Git Bash do Windows dá "There was an error parsing the body". O README diz que o bloco do Bash é para Linux ou macOS.
-- **Ficaram na máquina:** os volumes `aed-clone-teste_pgdata` e `aed-clone-teste_modelos` e a imagem `aed-clone-teste-api`. Apagar é decisão do usuário.
-
-**Cuidados:**
-- **Nenhum número novo sem medir.** Se faltar algum número, meça antes ou deixe o assunto fora do README.
-- **Os dois recalls da etapa 10 e a revisão dos rótulos entram com a explicação do viés.**
-- **Com 53 perguntas, uma diferença de 1 ou 2 acertos não permite dizer que uma configuração é melhor.**
-
-**Pronto quando:**
-- [x] O README tem todas as partes acima, com os números de "Medições registradas" e nenhum outro.
-- [x] Os comandos do README foram testados numa execução do zero (num clone novo, com `cp .env.example .env`; na primeira busca, o e5 é baixado).
+**Pronto quando (etapa 12):**
+- [x] O README tem todas as partes pedidas, com os números de "Medições registradas" e nenhum outro.
+- [x] Os comandos do README foram testados numa execução do zero (num clone novo, com `cp .env.example .env`).
 - [x] Cada exemplo de resposta do README diz com qual configuração foi gerado.
-- [ ] O usuário revisou o texto.
-- [ ] O usuário colocou os 3 prints (ou decidiu publicar sem eles).
-
-Ao terminar, marque a etapa 12 no roteiro.
+- [x] O usuário revisou o texto.
+- [x] O usuário colocou os 3 prints (ou decidiu publicar sem eles): decidiu publicar sem eles por agora.
 
 ## Docker (etapa 9): como usar e o que foi medido
 - **Subir tudo:** `docker compose up -d`, com o `db` e a `api` (porta 8000). **Só o banco, para usar a API no venv:** `docker compose up -d db`, ou `docker compose stop api`. As duas APIs usam a porta 8000.
@@ -371,7 +325,7 @@ Feitas rodando o código. A medição atual do chunking é a da etapa 7, com as 
 - [x] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
 - [x] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
 - [x] 11. Experimentos: modelo de embedding × tamanho de chunk.
-- [ ] 12. README final (diagrama, prints, resultados, limitações, comparação com e sem RAG).
+- [x] 12. README final (diagrama, resultados, limitações, comparação com e sem RAG). Os prints ficaram para depois.
 
 ## README
 - O README deve ser honesto sobre como o projeto foi feito. Por exemplo: "notas escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias".
