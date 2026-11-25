@@ -1,0 +1,39 @@
+{
+  "pergunta": "Por que o índice de vetores em C começa em 0?",
+  "resposta_da_api": {
+    "resposta": "Por que o índice de vetores em C começa em 0? Porque a expressão `v[i]` é definida como `*(v + i)`, onde `v` é um ponteiro para o primeiro elemento do vetor. Isso significa que o primeiro elemento do vetor está no endereço `v`, e o segundo no endereço `v + 1`, e assim por diante. Portanto, o índice 0 se refere ao próprio primeiro elemento do vetor. Além disso, o último índice válido de um vetor em C é o tamanho do vetor menos 1.",
+    "fontes": [
+      {
+        "nome_arquivo": "indice-zero.md",
+        "titulo": "Por que o índice de vetores em C começa em 0",
+        "secao": "Em C, v[i] é o mesmo que *(v + i)"
+      },
+      {
+        "nome_arquivo": "indice-zero.md",
+        "titulo": "Por que o índice de vetores em C começa em 0",
+        "secao": "O último índice válido de um vetor em C é o tamanho menos 1"
+      },
+      {
+        "nome_arquivo": "indice-zero.md",
+        "titulo": "Por que o índice de vetores em C começa em 0",
+        "secao": "O índice de um vetor em C é um deslocamento a partir do início"
+      }
+    ]
+  },
+  "data": "2026-11-25T12:06:41-03:00",
+  "llm": {
+    "modelo": "qwen2.5:3b",
+    "num_predict": 400,
+    "temperature": 0.1,
+    "num_ctx": 4096,
+    "commit_do_prompt": "62c6f9dc7a039bb5a1f3a083d243c6fa9d438b7c"
+  },
+  "busca": {
+    "modelo_embedding": "intfloat/multilingual-e5-small",
+    "prefixo_documento": "passage: ",
+    "prefixo_pergunta": "query: ",
+    "k": 3,
+    "chunk_max_palavras": 0,
+    "chunk_overlap_palavras": 0
+  }
+}
