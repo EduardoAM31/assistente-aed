@@ -140,7 +140,7 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 
 **A decidir antes de começar (é do usuário):**
 - ~~A ordem do PR dos ajustes da geração~~ **Decidido: antes do README.** O PR foi feito, e o registro está na seção "Ajustes da geração".
-- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada. **Recomendado: refazer**, com a mesma pergunta, guardando o resultado num arquivo novo, sem apagar o antigo. A resposta sem RAG, de 18/11, foi gerada pelo Ollama sem prompt de sistema e sem `temperature` registrada, e a com RAG usa `temperature` 0.1 e `num_predict` 256: o README diz isso.
+- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada. **Recomendado: refazer**, com a mesma pergunta, guardando o resultado num arquivo novo, sem apagar o antigo. A resposta sem RAG, de 18/11, foi gerada pelo Ollama sem prompt de sistema e sem `temperature` registrada, e a com RAG de 23/11 usou `temperature` 0.1 e `num_predict` 256, com o prompt antigo (hoje o prompt é outro e o `num_predict` é 400): o README diz isso. Para refazer, use o `POST /perguntas` com a API no ar na configuração final, e guarde um JSON novo (por exemplo, `avaliacao/baseline_com_rag_config_final.json`) com a resposta, as fontes, o modelo de embedding, o chunking, o LLM, `temperature`, `num_predict`, o hash do commit do prompt e a data.
 - **O diagrama:** em Mermaid, que o GitHub desenha, ou como imagem.
 - **Os prints:** quais telas (o `/docs`, uma resposta do `POST /perguntas`, a saída do `avaliar.py`). As imagens são tiradas pelo usuário, e o Claude só indica onde elas entram.
 - **A língua do README:** só em português, ou também em inglês.
@@ -222,7 +222,11 @@ São observações, e não métricas, feitas em 2026-11-25 com o e5 sem limite, 
 - às vezes não usa o que o trecho diz (os dois `for` e o O(n × m));
 - repete a pergunta e quase não cita o número do trecho.
 
-O tamanho da resposta e a cópia de código melhoraram com o prompt numerado.
+**Como ler estas rodadas:**
+- Cada prompt rodou uma vez por pergunta, e a variação entre execuções do mesmo prompt (o Ollama não fixa a semente) **não foi medida**. Os dois erros que não apareceram na rodada 2 (a contradição do bubble sort e o número do `malloc`) podem ser, em parte, variação, e não efeito do prompt.
+- O que se repetiu nas 3 rodadas é o que se pode afirmar: os dois `for` vagos, a citação rara do trecho e o quicksort explicado com conhecimento próprio.
+- O efeito de cada mudança (o prompt numerado e o `num_predict` 400) **não foi isolado**. Na rodada 2, nenhum exemplo de código foi copiado e nenhuma resposta foi cortada, mas isso não prova que o prompt foi a causa: a rodada 0 também não teve resposta cortada.
+- Opcional, sem prometer resultado: repetir a rodada 2 mais 2 vezes nas 10 perguntas e anotar o que muda de uma execução para outra. Outra opção é passar as 3 perguntas "sem resposta no corpus" do `perguntas.jsonl` pelo `POST /perguntas` e anotar se o modelo diz que não sabe (3 observações, só para o README).
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
