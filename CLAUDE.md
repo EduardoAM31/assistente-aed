@@ -89,7 +89,7 @@ docker-compose.yml, Dockerfile, .dockerignore, requirements.txt, .env.example, .
 - **Prefixos dos modelos de embedding:** o `multilingual-e5-small` exige `passage: ` no começo de cada chunk e `query: ` no começo de cada pergunta. O `paraphrase-multilingual-MiniLM-L12-v2` não usa prefixo. Esses prefixos e o prefixo com os títulos que o chunking coloca em todo chunk (`# <nota>` e `## <seção>`) contam no limite de tokens do modelo, mesmo não contando no limite de palavras do chunking.
 - **Limites de tokens (medidos):** o MiniLM tem `max_seq_length` = 128 e o e5-small tem 512. Texto além do limite é ignorado no cálculo do vetor, sem erro. Só o vetor é afetado: o texto do chunk continua inteiro no banco e vai inteiro para o LLM.
 - **Baseline sem RAG:** o `qwen2.5:3b` respondeu sozinho, sem contexto, à pergunta "Por que o índice de vetores em C começa em 0?". A resposta foi longa e com erros factuais: disse que os arrays de C são "tipados dinamicamente", que C++ conta a partir de 1 e que C deixa escolher o índice inicial. A resposta está em `avaliacao/baseline_sem_rag.md`, colocada à mão pelo usuário, e a resposta com RAG está em `avaliacao/baseline_com_rag.json`, para a comparação no README.
-- **`avaliacao/perguntas.jsonl` (etapa 10):** foi escrito e rotulado à mão pelo usuário e **está congelado**. Mudar uma pergunta ou um rótulo depois de ver os erros faz a pergunta passar por causa da mudança, e não por causa da busca. Se ele mudar, é uma rodada nova, registrada à parte, e a da etapa 10 continua sendo a referência.
+- **`avaliacao/perguntas.jsonl` (etapa 10):** foi escrito e rotulado à mão pelo usuário. Os rótulos foram revisados uma vez, depois da 1ª rodada (veja "Medições registradas"), e **agora o arquivo está congelado**. Mudar uma pergunta ou um rótulo depois de ver os erros faz a pergunta passar por causa da mudança, e não por causa da busca. Se ele mudar de novo, todas as combinações da etapa 11 precisam ser medidas outra vez, e a mudança fica registrada.
   - **Formato:** uma linha JSON por pergunta, com `id`, `pergunta`, `nota` (o `nome_arquivo`) e `secao` (o título exato da seção `##`). Uma pergunta que nenhuma nota cobre tem `"sem_resposta": true` e fica fora do recall. Uma variante com erro de digitação tem `variante_de`, com o id da principal, e o mesmo rótulo dela.
   - **Regras da rotulagem:** uma seção por pergunta. Letra minúscula no lugar de maiúscula não conta como erro de digitação. Já contam abreviação ("q", "pq"), acento faltando, palavra errada ("identação") e palavra faltando. **Não escreva notas para cobrir as perguntas sem resposta:** essa decisão é do usuário.
 - **`avaliacao/avaliar.py`:** rode na raiz, com o venv ativo e o banco no ar, com `python -m avaliacao.avaliar`. Não precisa da API nem do Ollama, e usa o banco do `.env` (o `aed`).
@@ -112,7 +112,7 @@ Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embeddi
 
 **O que já existe:**
 - O `avaliacao/avaliar.py` e o `perguntas.jsonl`, que está congelado (veja a seção "Avaliação").
-- **A referência da etapa 10:** MiniLM com 60/10, com recall@3 de 54,7% nas principais e 34,8% nas variantes (veja "Medições registradas").
+- **A referência da etapa 10:** a 2ª rodada, com os rótulos revisados. MiniLM com 60/10, com recall@3 de 58,5% nas principais e 34,8% nas variantes (veja "Medições registradas").
 - A contagem de chunks e de tokens das 3 configurações, nos 2 modelos, também está em "Medições registradas". Dela sai a porcentagem de chunks cortados pelo limite de tokens.
 - Hoje, a ingestão das notas só é feita pelo `POST /documentos`, uma nota por vez (pelo `/docs`), e depois pelo `POST /embeddings?refazer=true`.
 
@@ -137,7 +137,7 @@ Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embeddi
 - **O `.env` precisa mudar inteiro de uma vez:** o modelo, os 2 prefixos e o chunking. O e5 sem os prefixos dá um recall errado, sem erro nenhum. O `avaliar.py` avisa sobre vetores do banco de outro modelo, mas não percebe um prefixo de pergunta esquecido.
 - **RAM:** o e5-small também gera vetores de 384 dimensões, mas o uso de RAM dele ainda não foi medido. Na primeira vez, ele é baixado do Hugging Face.
 - **Não ajuste notas, perguntas, rótulos nem a busca** olhando os erros. Só o que foi medido entra no README.
-- **Observação da etapa 10, sem promessa de resultado:** com 60/10, em 12 dos 24 erros das principais a mesma seção ocupou mais de uma das 3 posições. Sem limite, cada seção é um chunk só, mas no MiniLM todos esses chunks passam dos 128 tokens.
+- **Observação da etapa 10, sem promessa de resultado:** com 60/10, em 10 dos 22 erros das principais (2ª rodada) a mesma seção ocupou mais de uma das 3 posições. Sem limite, cada seção é um chunk só, mas no MiniLM todos esses chunks passam dos 128 tokens.
 
 **A decidir (é do usuário):**
 - se o `avaliar.py` ganha o recall das principais que têm variante;
@@ -209,19 +209,28 @@ Medidos rodando o código, com 5 perguntas escolhidas à mão (MiniLM, 60/10, k=
 ## Medições registradas (para o README)
 Feitas rodando o código. A medição atual do chunking é a da etapa 7, com as 25 notas. A da etapa 5, com as 13 notas da parte 1, fica como histórico.
 
-**Recall@3 da busca (etapa 10): a primeira rodada, que é a referência.** Rodada em 2026-11-25, antes de qualquer ajuste. Configuração: MiniLM, 60/10 e k=3, com 324 chunks no banco. Não houve avisos: o número de chunks bate com o corpus, e a distância entre o vetor guardado e o recalculado foi 0,000000. O resultado está em `avaliacao/resultados/2026-11-25_0945_paraphrase-multilingual-MiniLM-L12-v2_60-10.json`.
-- **79 perguntas:** 53 principais, 23 variantes com erro de digitação e 3 sem resposta no corpus.
-- **recall@3 das principais: 54,7% (29 de 53).** **recall@3 das variantes: 34,8% (8 de 23).**
-- **Os dois recalls não medem o mesmo grupo de perguntas.** As principais que têm variante acertaram só 8 de 23 (34,8%), o mesmo número das variantes:
+**Recall@3 da busca (etapa 10).** Rodadas em 2026-11-25, com MiniLM, 60/10, k=3 e 324 chunks no banco. Nenhuma das duas teve aviso: o número de chunks bate com o corpus, e a distância entre o vetor guardado e o recalculado foi 0,000000. São 79 perguntas: 53 principais, 23 variantes com erro de digitação e 3 sem resposta no corpus.
+
+| Rodada | Rótulos | recall@3 das principais | recall@3 das variantes | Arquivo em `avaliacao/resultados/` |
+|---|---|---|---|---|
+| 1ª | originais | 54,7% (29 de 53) | 34,8% (8 de 23) | `2026-11-25_0945_..._60-10.json` |
+| **2ª (referência da etapa 11)** | revisados | **58,5% (31 de 53)** | **34,8% (8 de 23)** | `2026-11-25_0957_..._60-10.json` |
+
+- **A revisão dos rótulos:** depois da 1ª rodada, o usuário viu que o rótulo da pergunta 4 estava errado e revisou os rótulos das 76 perguntas com resposta. Mudaram 2 seções, nenhuma nota e nenhum texto de pergunta:
+  - **4** ("quando que eu uso o switch?"): de "Como funciona o switch em C" para "Quando usar switch ou if-else em C";
+  - **78** ("o que significa dizer que um algoritmo tem complexidade O(n)?"): de "Exemplos de O(1), O(n) e O(n²) em C" para "O que é a notação Big-O na análise de algoritmos".
+
+  **As 2 mudanças foram em perguntas que tinham errado na 1ª rodada, e as 2 passaram a acertar.** É o viés de revisar depois de ver os erros: um rótulo errado só aparece quando a pergunta erra. Por isso, o README mostra as duas rodadas, com essa explicação. Nenhuma das 2 tem variante, então o recall das variantes não mudou.
+- **Os dois recalls não medem o mesmo grupo de perguntas.** Nas duas rodadas, as principais que têm variante acertaram só 8 de 23 (34,8%), o mesmo número das variantes:
   - 6 pares acertaram nas duas versões e 13 erraram nas duas;
   - em 2 pares, só a principal acertou (5 e 16);
   - em 2 pares, só a variante acertou (1 e 35).
 
-  Neste conjunto, o erro de digitação não mudou o recall total. A diferença entre 54,7% e 34,8% vem das perguntas: as principais que ganharam variante são mais difíceis que a média.
-- **Nos 24 erros das principais:**
-  - 6 trouxeram a nota certa, mas com outra seção: 4, 10, 25, 53, 76 e 78;
-  - em 12, a mesma seção ocupou mais de uma das 3 posições, porque o 60/10 divide a seção em vários chunks.
-- **Sem resposta no corpus:** nas 3 perguntas, o chunk mais perto ficou a uma distância de 0,47 a 0,53.
+  Neste conjunto, o erro de digitação não mudou o recall total. A diferença entre o recall das principais e o das variantes vem das perguntas: as principais que ganharam variante são mais difíceis que a média.
+- **Nos 22 erros das principais da 2ª rodada:**
+  - 4 trouxeram a nota certa, mas com outra seção: 10, 25, 53 e 76;
+  - em 10, a mesma seção ocupou mais de uma das 3 posições, porque o 60/10 divide a seção em vários chunks.
+- **Sem resposta no corpus:** nas 3 perguntas, o chunk mais perto ficou a uma distância de 0,47 a 0,53, nas duas rodadas.
 
 **Corpus completo (etapa 7): 25 notas, 107 seções.**
 - **Chunks:** 484 com 40/8, 324 com 60/10 e 107 sem limite. Também medidos: 231 com 80/15, 212 com 100/15, 170 com 120/20 e 113 com 150/25. Com a parte 2, o 150/25 voltou a ser diferente de "sem limite".
