@@ -1,0 +1,79 @@
+{"id": 1, "pergunta": "Quando que eu uso else ou else if?", "nota": "if-else.md", "secao": "Como usar else e else if em C"}
+{"id": 2, "pergunta": "quando q eu uso else ou else if?", "nota": "if-else.md", "secao": "Como usar else e else if em C", "variante_de": 1}
+{"id": 3, "pergunta": "o que é && e || no if?", "nota": "if-else.md", "secao": "Como combinar condições no if em C com && e ||"}
+{"id": 4, "pergunta": "quando que eu uso o switch?", "nota": "switch-case.md", "secao": "Quando usar switch ou if-else em C"}
+{"id": 5, "pergunta": "Por que o último case eu uso break?", "nota": "switch-case.md", "secao": "Por que o break é necessário no switch em C"}
+{"id": 6, "pergunta": "porque o ultimo case eu uso break?", "nota": "switch-case.md", "secao": "Por que o break é necessário no switch em C", "variante_de": 5}
+{"id": 7, "pergunta": "Por que o for começa no 0?", "nota": "laco-for.md", "secao": "As três partes do laço for em C"}
+{"id": 8, "pergunta": "pq o for começa no 0?", "nota": "laco-for.md", "secao": "As três partes do laço for em C", "variante_de": 7}
+{"id": 9, "pergunta": "qual a diferença de usar i++ ou ++i no for?", "sem_resposta": true}
+{"id": 10, "pergunta": "O que acontece quando eu faço while(true)?", "nota": "laco-while.md", "secao": "Laço infinito com while em C: por que acontece"}
+{"id": 11, "pergunta": "o q acontece quando eu faço while(true)?", "nota": "laco-while.md", "secao": "Laço infinito com while em C: por que acontece", "variante_de": 10}
+{"id": 12, "pergunta": "qual a diferença do while pro do while?", "nota": "laco-while.md", "secao": "O laço do-while em C roda pelo menos uma vez"}
+{"id": 13, "pergunta": "qual a diferença do while pro for?", "nota": "for-vs-while.md", "secao": "Em C, todo for pode ser escrito como while"}
+{"id": 14, "pergunta": "Quando que eu uso while e não for?", "nota": "for-vs-while.md", "secao": "Quando usar while em C"}
+{"id": 15, "pergunta": "quando q eu uso while e n for?", "nota": "for-vs-while.md", "secao": "Quando usar while em C", "variante_de": 14}
+{"id": 16, "pergunta": "Por que eu tenho que usar indentação?", "nota": "indentacao-e-chaves.md", "secao": "Boas práticas de chaves e indentação em C"}
+{"id": 17, "pergunta": "porque tenho que usar identação?", "nota": "indentacao-e-chaves.md", "secao": "Boas práticas de chaves e indentação em C", "variante_de": 16}
+{"id": 18, "pergunta": "se eu tirar as chaves do if dá erro?", "nota": "indentacao-e-chaves.md", "secao": "O erro do if sem chaves com duas linhas indentadas em C"}
+{"id": 19, "pergunta": "eu consigo aumentar o tamanho do vetor?", "nota": "vetores.md", "secao": "O tamanho de um vetor em C é fixo e não fica guardado nele"}
+{"id": 20, "pergunta": "como eu faço a leitura dos valores em um vetor?", "nota": "vetores.md", "secao": "Como ler e mostrar os elementos de um vetor em C com for"}
+{"id": 21, "pergunta": "Por que o vetor começa em 0?", "nota": "indice-zero.md", "secao": "O índice de um vetor em C é um deslocamento a partir do início"}
+{"id": 22, "pergunta": "pq vetor começa em 0?", "nota": "indice-zero.md", "secao": "O índice de um vetor em C é um deslocamento a partir do início", "variante_de": 21}
+{"id": 23, "pergunta": "O que acontece se eu imprimir a posição -1 do vetor?", "nota": "erros-com-vetores.md", "secao": "Acessar um vetor em C fora dos limites é comportamento indefinido"}
+{"id": 24, "pergunta": "o q acontece se eu imprimir a posição -1 do vetor?", "nota": "erros-com-vetores.md", "secao": "Acessar um vetor em C fora dos limites é comportamento indefinido", "variante_de": 23}
+{"id": 25, "pergunta": "Por que dá problema quando eu acesso a posição n do vetor?", "nota": "indice-zero.md", "secao": "O último índice válido de um vetor em C é o tamanho menos 1"}
+{"id": 26, "pergunta": "pq da problema quando eu acesso a posição n do vetor?", "nota": "indice-zero.md", "secao": "O último índice válido de um vetor em C é o tamanho menos 1", "variante_de": 25}
+{"id": 27, "pergunta": "o que é esse \\0 no final da string?", "nota": "strings.md", "secao": "Em C, uma string é um vetor de char terminado em '\\0'"}
+{"id": 28, "pergunta": "Qual a diferença entre \" e '?", "nota": "strings.md", "secao": "Em C, uma string é um vetor de char terminado em '\\0'"}
+{"id": 29, "pergunta": "qual a diferenca entre \" e '?", "nota": "strings.md", "secao": "Em C, uma string é um vetor de char terminado em '\\0'", "variante_de": 28}
+{"id": 30, "pergunta": "eu posso pôr minha função depois da main?", "nota": "funcoes.md", "secao": "Como declarar e chamar uma função em C"}
+{"id": 31, "pergunta": "eu posso por minha função depois da main?", "nota": "funcoes.md", "secao": "Como declarar e chamar uma função em C", "variante_de": 30}
+{"id": 32, "pergunta": "A minha função não precisa voltar nada, eu deixo vazio o tipo?", "nota": "funcoes.md", "secao": "Funções void e o return em C"}
+{"id": 33, "pergunta": "a minha função nao precisa voltar nada, eu deixo vazio o tipo?", "nota": "funcoes.md", "secao": "Funções void e o return em C", "variante_de": 32}
+{"id": 34, "pergunta": "o que é ponteiro?", "nota": "ponteiros.md", "secao": "O que é um ponteiro em C e os operadores & e *"}
+{"id": 35, "pergunta": "O que é endereço de memória?", "nota": "ponteiros.md", "secao": "O que é um ponteiro em C e os operadores & e *"}
+{"id": 36, "pergunta": "o q é endereço de memoria?", "nota": "ponteiros.md", "secao": "O que é um ponteiro em C e os operadores & e *", "variante_de": 35}
+{"id": 37, "pergunta": "como eu acesso uma posição na matriz usando for?", "nota": "matrizes.md", "secao": "Como percorrer uma matriz em C com dois for"}
+{"id": 38, "pergunta": "como eu faço pra saber quantas linhas e colunas tem a matriz?", "nota": "matrizes.md", "secao": "Como uma matriz em C fica guardada na memória"}
+{"id": 39, "pergunta": "qual é a diferença entre alocação estática e dinâmica de memória?", "nota": "alocacao-dinamica.md", "secao": "O que é alocação dinâmica em C e quando usar malloc"}
+{"id": 40, "pergunta": "qual é a diferença entre alocação estática e dinamica de memória?", "nota": "alocacao-dinamica.md", "secao": "O que é alocação dinâmica em C e quando usar malloc", "variante_de": 39}
+{"id": 41, "pergunta": "o que acontece se eu esquecer de liberar a memória alocada dinamicamente?", "nota": "alocacao-dinamica.md", "secao": "Como liberar memória com free em C: vazamento e ponteiro solto"}
+{"id": 42, "pergunta": "como funciona o free?", "nota": "alocacao-dinamica.md", "secao": "Como liberar memória com free em C: vazamento e ponteiro solto"}
+{"id": 43, "pergunta": "qual é a diferença entre uma lista encadeada e um vetor?", "nota": "lista-encadeada.md", "secao": "Diferença entre lista encadeada e vetor em C"}
+{"id": 44, "pergunta": "como faço para pegar um valor na lista igual a um vetor?", "nota": "lista-encadeada.md", "secao": "Como percorrer e imprimir uma lista encadeada em C"}
+{"id": 45, "pergunta": "o que é FIFO?", "nota": "fila.md", "secao": "O que é uma fila (FIFO) em C"}
+{"id": 46, "pergunta": "O que é LIFO?", "nota": "pilha.md", "secao": "O que é uma pilha (LIFO) em C"}
+{"id": 47, "pergunta": "o que LIFO?", "nota": "pilha.md", "secao": "O que é uma pilha (LIFO) em C", "variante_de": 46}
+{"id": 48, "pergunta": "Como funciona a entrada e a saída de elementos em uma pilha?", "nota": "pilha.md", "secao": "O que é uma pilha (LIFO) em C"}
+{"id": 49, "pergunta": "como funciona a entrada e a saida de elementos em uma pilha?", "nota": "pilha.md", "secao": "O que é uma pilha (LIFO) em C", "variante_de": 48}
+{"id": 50, "pergunta": "o que acontece se eu tentar remover um elemento de uma pilha vazia?", "nota": "pilha.md", "secao": "Pilha cheia e pilha vazia em C: overflow e underflow"}
+{"id": 51, "pergunta": "Como funciona a ordem de entrada e saída dos elementos em uma fila?", "nota": "fila.md", "secao": "O que é uma fila (FIFO) em C"}
+{"id": 52, "pergunta": "como funciona a ordem de entrada e saida dos elementos em uma fila?", "nota": "fila.md", "secao": "O que é uma fila (FIFO) em C", "variante_de": 51}
+{"id": 53, "pergunta": "como faço para remover um elemento que está no início da fila?", "nota": "fila.md", "secao": "O que é uma fila (FIFO) em C"}
+{"id": 54, "pergunta": "qual é a principal diferença entre uma pilha e uma fila?", "nota": "pilha-vs-fila.md", "secao": "A diferença entre pilha e fila em C está na ordem de saída"}
+{"id": 55, "pergunta": "em quais situações é melhor utilizar uma pilha em vez de uma fila?", "nota": "pilha-vs-fila.md", "secao": "Quando usar pilha e quando usar fila em C"}
+{"id": 56, "pergunta": "como funciona um map?", "nota": "map.md", "secao": "O que é um map em C++ e por que não existe em C"}
+{"id": 57, "pergunta": "o que acontece se eu adicionar duas vezes a mesma chave em um map?", "nota": "map.md", "secao": "Como inserir e acessar valores num map em C++"}
+{"id": 58, "pergunta": "Por que só tem um valor de cada em um set?", "nota": "set.md", "secao": "O que é um set em C++"}
+{"id": 59, "pergunta": "porque so tem um valor de cada em um set?", "nota": "set.md", "secao": "O que é um set em C++", "variante_de": 58}
+{"id": 60, "pergunta": "como ter mais de um valor em um set?", "sem_resposta": true}
+{"id": 61, "pergunta": "Posso acessar um elemento de um set diretamente pelo índice?", "nota": "set.md", "secao": "Como percorrer um set em C++: os elementos saem em ordem"}
+{"id": 62, "pergunta": "posso acessar um elemento de um set diretamente pelo indice?", "nota": "set.md", "secao": "Como percorrer um set em C++: os elementos saem em ordem", "variante_de": 61}
+{"id": 63, "pergunta": "qual é a diferença entre guardar dados em um map e em um set?", "nota": "map-vs-set.md", "secao": "A diferença entre map e set em C++: chave com valor ou só a chave"}
+{"id": 64, "pergunta": "quando é melhor utilizar um set em vez de um map?", "nota": "map-vs-set.md", "secao": "Quando usar set e quando usar map em C++"}
+{"id": 65, "pergunta": "qual é a diferença entre busca linear e busca binária?", "nota": "busca-linear-e-binaria.md", "secao": "Diferença de velocidade entre busca linear e binária em C"}
+{"id": 66, "pergunta": "Por que a busca binária precisa do vetor ordenado?", "nota": "busca-linear-e-binaria.md", "secao": "Por que a busca binária em C precisa do vetor ordenado"}
+{"id": 67, "pergunta": "por que a busca binaria precisa do vetor ordenado?", "nota": "busca-linear-e-binaria.md", "secao": "Por que a busca binária em C precisa do vetor ordenado", "variante_de": 66}
+{"id": 68, "pergunta": "qual é a diferença entre bubble sort e selection sort?", "nota": "ordenacao-simples.md", "secao": "Comparação entre bubble, selection e insertion sort em C"}
+{"id": 69, "pergunta": "Qual função de ordenação é mais rápida?", "nota": "ordenacao-simples.md", "secao": "Comparação entre bubble, selection e insertion sort em C"}
+{"id": 70, "pergunta": "qual funçao de ordenação é mais rapida?", "nota": "ordenacao-simples.md", "secao": "Comparação entre bubble, selection e insertion sort em C", "variante_de": 69}
+{"id": 71, "pergunta": "a função sort é rápida?", "sem_resposta": true}
+{"id": 72, "pergunta": "como uma função consegue chamar ela mesma?", "nota": "recursao.md", "secao": "O que é recursão em C"}
+{"id": 73, "pergunta": "o que é condição de parada?", "nota": "recursao.md", "secao": "O caso base da recursão em C e o que acontece sem ele"}
+{"id": 74, "pergunta": "Por que minha função não está parando?", "nota": "recursao.md", "secao": "O caso base da recursão em C e o que acontece sem ele"}
+{"id": 75, "pergunta": "porque minha função não esta parando?", "nota": "recursao.md", "secao": "O caso base da recursão em C e o que acontece sem ele", "variante_de": 74}
+{"id": 76, "pergunta": "O que é complexidade?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos"}
+{"id": 77, "pergunta": "o q é complexidade?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos", "variante_de": 76}
+{"id": 78, "pergunta": "o que significa dizer que um algoritmo tem complexidade O(n)?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos"}
+{"id": 79, "pergunta": "por que um algoritmo O(log n) costuma ser mais rápido que um O(n)?", "nota": "complexidade-big-o.md", "secao": "O(log n): por que a busca binária é tão rápida"}

@@ -199,3 +199,58 @@ def test_perguntas_da_503_quando_o_provedor_falha(cliente, monkeypatch):
 @pytest.mark.parametrize("pergunta", ["", "   "], ids=["vazia", "so-espacos"])
 def test_perguntas_com_pergunta_vazia_da_422(cliente, pergunta):
     assert cliente.post("/perguntas", json={"pergunta": pergunta}).status_code == 422
+
+
+# --- Conferência do banco feita pelo avaliacao/avaliar.py ---------------------
+
+
+class ModeloDiferente:
+    """Outro modelo falso: gera vetores longe dos que o ModeloFalso gravou."""
+
+    def encode(self, textos: list[str]) -> list[list[float]]:
+        return [[0.0] * 383 + [1.0] for _ in textos]
+
+
+def test_contar_chunks_e_amostra_com_vetor(cliente):
+    from app import db
+
+    enviar(cliente, "pilha.md", NOTA_PILHA)
+    enviar(cliente, "fila.md", NOTA_FILA)
+    assert db.contar_chunks() == {"total": 3, "com_vetor": 0}
+    assert db.amostrar_chunks_com_vetor(5) == []
+
+    cliente.post("/embeddings")
+
+    assert db.contar_chunks() == {"total": 3, "com_vetor": 3}
+    amostra = db.amostrar_chunks_com_vetor(2)
+    assert len(amostra) == 2
+    assert amostra[0]["embedding"].startswith("[")  # o vetor vem como texto
+
+
+def test_avaliar_nao_avisa_quando_banco_bate_com_o_env(cliente, fakes, tmp_path, monkeypatch):
+    from app import db, embeddings
+    from app.config import settings
+    from avaliacao import avaliar
+
+    preparar_busca(cliente)
+    (tmp_path / "pilha.md").write_text(NOTA_PILHA, encoding="utf-8")
+    (tmp_path / "fila.md").write_text(NOTA_FILA, encoding="utf-8")
+    monkeypatch.setattr(avaliar, "PASTA_CORPUS", tmp_path)
+
+    assert avaliar.conferir_banco(settings, db, embeddings, lambda: fakes["modelo"]) == []
+
+
+def test_avaliar_avisa_chunks_a_mais_e_vetores_de_outro_modelo(cliente, tmp_path, monkeypatch):
+    from app import db, embeddings
+    from app.config import settings
+    from avaliacao import avaliar
+
+    preparar_busca(cliente)  # 3 chunks no banco, com os vetores do ModeloFalso
+    (tmp_path / "pilha.md").write_text(NOTA_PILHA, encoding="utf-8")  # o corpus só gera 2
+    monkeypatch.setattr(avaliar, "PASTA_CORPUS", tmp_path)
+
+    avisos = avaliar.conferir_banco(settings, db, embeddings, lambda: ModeloDiferente())
+
+    assert len(avisos) == 2
+    assert "o chunking do .env gera 2" in avisos[0]
+    assert "outro modelo" in avisos[1]

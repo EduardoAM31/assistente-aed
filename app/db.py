@@ -149,6 +149,35 @@ def buscar_chunks(vetor: str, k: int) -> list[dict]:
         return _como_dicionarios(conexao, linhas)
 
 
+def contar_chunks() -> dict:
+    """Quantos chunks o banco tem, e quantos deles já têm vetor."""
+    with conectar() as conexao:
+        linhas = conexao.run(
+            "SELECT count(*) AS total, count(embedding) AS com_vetor FROM chunks"
+        )
+        return _como_dicionarios(conexao, linhas)[0]
+
+
+def amostrar_chunks_com_vetor(quantidade: int) -> list[dict]:
+    """Alguns chunks com o vetor guardado, escrito como texto '[0.1,0.2,...]'.
+
+    A ordem por md5(id) embaralha os chunks, mas é sempre a mesma: a amostra
+    pega notas diferentes e não muda de uma rodada para outra.
+    """
+    with conectar() as conexao:
+        linhas = conexao.run(
+            """
+            SELECT id, texto, embedding::text AS embedding
+            FROM chunks
+            WHERE embedding IS NOT NULL
+            ORDER BY md5(id::text)
+            LIMIT :quantidade
+            """,
+            quantidade=quantidade,
+        )
+        return _como_dicionarios(conexao, linhas)
+
+
 def listar_documentos() -> list[dict]:
     """Lista as notas gravadas, em ordem de nome de arquivo, com o número de chunks."""
     with conectar() as conexao:
