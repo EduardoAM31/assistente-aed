@@ -1,6 +1,6 @@
 # Assistente de Algoritmos e Estruturas de Dados (RAG)
 
-API que responde dúvidas de iniciantes em Algoritmos e Estruturas de Dados (AED) com base em 25 notas próprias, escritas a partir das dúvidas mais comuns nas monitorias da disciplina. A resposta é gerada por um LLM local, o `qwen2.5:3b` no Ollama, usando só os trechos que a busca vetorial (PostgreSQL + pgvector) encontrou, e cita a nota e a seção de onde veio.
+API que responde dúvidas de iniciantes em Algoritmos e Estruturas de Dados (AED) com base em 25 notas, escritas com auxílio de IA e revisadas à mão, a partir das dúvidas mais comuns nas monitorias da disciplina. A resposta é gerada por um LLM local, o `qwen2.5:3b` no Ollama, usando só os trechos que a busca vetorial (PostgreSQL + pgvector) encontrou, e cita a nota e a seção de onde veio.
 
 O projeto foi feito para ser simples de explicar: SQL escrito à mão, sem ORM, sem framework de RAG, e uma interface pequena entre a busca e o LLM.
 
@@ -42,10 +42,12 @@ flowchart LR
 ### Busca: recall@3
 A métrica principal é o **recall@3**: a fração das perguntas em que pelo menos um dos 3 chunks devolvidos vem da seção certa. Cada pergunta é rotulada com a nota e a seção que a respondem.
 
-São **79 perguntas escritas e rotuladas à mão**, depois das perguntas de rascunho, que vieram antes das notas:
+São **79 perguntas escritas e rotuladas à mão**:
 - 53 principais;
 - 23 variantes com erro de digitação ("identação", "pq", acento faltando), cada uma com o mesmo rótulo da sua principal;
 - 3 sem resposta no corpus, que ficam fora do recall.
+
+O conjunto foi montado na etapa 10, depois das notas, a partir das 56 perguntas de rascunho, que foram escritas antes das notas. As 56 entraram todas: 55 sem mudança e 1 só com um acento a mais. Nas 23 que tinham erro de digitação, a versão do rascunho virou a variante, e a versão correta, que é a principal, foi escrita na etapa 10, por quem já conhecia o corpus. Os rótulos de todas também foram dados nessa etapa.
 
 Com 53 perguntas, **cada pergunta vale 1,9 ponto**. Por isso, os acertos aparecem junto da porcentagem. Uma diferença de 1 ou 2 perguntas entre duas configurações não permite dizer que uma é melhor.
 
@@ -75,7 +77,7 @@ O MiniLM é o `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, que
 ### Com e sem RAG
 A mesma pergunta, "Por que o índice de vetores em C começa em 0?", feita ao mesmo `qwen2.5:3b`:
 
-**Sem RAG** (18/11/2026, direto no Ollama, sem contexto e sem prompt de sistema; `temperature` não registrada). A resposta tem 5 parágrafos e vários erros. A íntegra está em [`avaliacao/baseline_sem_rag.md`](avaliacao/baseline_sem_rag.md). Os problemas:
+**Sem RAG** (18/11/2026, direto no Ollama, sem contexto e sem prompt de sistema; `temperature` não registrada). A resposta tem 350 palavras (as respostas com RAG têm 51 e 86) e vários erros. A íntegra está em [`avaliacao/baseline_sem_rag.md`](avaliacao/baseline_sem_rag.md). Os problemas:
 - diz que os arrays de C são "tipados dinamicamente", mas C tem tipagem estática;
 - diz que C++ conta a partir de 1, mas C++ também começa em 0;
 - diz que C deixa o programador escolher o índice inicial, e não deixa;
@@ -100,7 +102,7 @@ A qualidade das respostas não tem métrica. Ela foi observada em 18 perguntas c
 - **Funciona bem:**
   - as respostas são curtas (de 10 a 135 tokens) e nenhuma foi cortada;
   - o modelo não copia os exemplos de código inteiros;
-  - perguntas sobre assuntos sem nenhuma relação com as notas recebem "Não sei responder isso com base nas notas." (Dijkstra, árvore AVL e 2 das 3 perguntas sem resposta).
+  - perguntas que as notas não respondem recebem "Não sei responder isso com base nas notas." (Dijkstra, árvore AVL e 2 das 3 perguntas sem resposta).
 - **Limitações do modelo de 3B:**
   - **inventa quando os trechos são de um assunto vizinho:** explicou o quicksort e a diferença entre `i++` e `++i` com o próprio conhecimento, e nesta segunda errou, dizendo que a ordem "pode alterar o comportamento do laço";
   - **às vezes não usa o que o trecho diz:** em "Dois for um dentro do outro é sempre O(n²)?", o trecho certo, que fala do O(n × m), estava entre os recebidos, e a resposta ficou vaga nas 3 execuções;
@@ -222,9 +224,11 @@ tests/          pytest, com fakes do modelo e do LLM
 ## Limitações
 - **A configuração final foi escolhida no mesmo conjunto de perguntas que a mede.** O 77,4% é o melhor de 6 combinações medidas nas mesmas 79 perguntas, então tende a ser otimista. A vantagem do e5 sobre o MiniLM aparece nas 3 configurações. A do "sem limite" sobre o 60/10 é de 2 perguntas.
 - **O conjunto de perguntas é pequeno** (53 principais, 23 variantes e 3 sem resposta) e foi escrito por uma pessoa só. Os rótulos de 2 perguntas foram revisados depois de ver os erros.
+- **Parte das perguntas foi escrita depois das notas.** As 23 versões corretas das perguntas com erro de digitação foram escritas na etapa 10, por quem já conhecia o corpus, o que pode ter dado vantagem à busca (por exemplo, com palavras das notas). As outras 56 vieram do rascunho, escrito antes das notas.
 - **O recall mede só a busca.** A qualidade das respostas foi só observada, em poucas perguntas, e o modelo de 3B tem as limitações descritas acima.
 - **O corpus é pequeno:** 25 notas de C (e `map` e `set` em C++). As perguntas de rascunho foram escritas antes das notas, para a busca não ficar fácil com o vocabulário delas, mas a mesma pessoa escreveu as perguntas e revisou as notas.
 - **Os números de memória, tempo e tamanho da imagem** são de um Docker Desktop no Windows, numa VM de 2,84 GiB (a máquina tem 8 GB de RAM). Com o e5 carregado, a API usava cerca de 1,1 GiB. Esses números não valem para outra máquina.
+- **Os comandos foram testados no Docker Desktop do Windows** (e os de Bash, no WSL). Num Docker Engine no Linux, o Ollama no host precisa escutar num endereço que o container alcance (`OLLAMA_HOST=0.0.0.0` expõe o Ollama na rede); isso não foi testado.
 
 ## Como o projeto foi feito
-As notas do corpus foram escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias da disciplina. Os exemplos de código das notas foram compilados com `gcc -Wall` (ou `g++`) antes de entrar no corpus. O código também foi escrito com auxílio de IA (Claude Code), em etapas pequenas, cada uma revisada e testada antes do merge. As perguntas de avaliação e os rótulos foram escritos à mão, e nenhuma métrica deste README foi estimada: todas vêm de execuções do código, registradas em `avaliacao/resultados/`.
+As notas do corpus foram escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias da disciplina. Os exemplos de código das notas foram compilados com `gcc -Wall` (ou `g++`) antes de entrar no corpus. O código também foi escrito com auxílio de IA (Claude Code), em etapas pequenas, cada uma revisada e testada antes do merge. As perguntas de avaliação e os rótulos foram escritos à mão, e nenhuma métrica deste README foi estimada: todas vêm de execuções do código. Os resultados do recall@3 estão em `avaliacao/resultados/`, e as demais medições (chunks, tokens, Docker e geração) estão registradas no `CLAUDE.md`.
