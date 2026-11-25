@@ -53,7 +53,7 @@ app/geracao/  __init__.py, base.py (interface e prompt), ollama.py, huggingface.
 corpus/     notas .md
 avaliacao/  perguntas_rascunho.md, perguntas.jsonl, baseline_com_rag.json, baseline_sem_rag.md, avaliar.py, resultados/
 sql/        init.sql
-scripts/    contar_tokens.py
+scripts/    contar_tokens.py, reindexar.py
 tests/      conftest.py (banco aed_teste e fakes), test_*.py
 .github/workflows/testes.yml
 docker-compose.yml, Dockerfile, .dockerignore, requirements.txt, .env.example, .gitattributes, README.md
@@ -107,53 +107,47 @@ As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
 - Se os trechos não respondem a pergunta, o modelo deve dizer que não sabe.
 - No Ollama: `num_predict` para limitar o tamanho da resposta e `temperature` baixa.
 
-## Etapa atual: 11 (experimentos)
-Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embedding × tamanho de chunk, para escolher a configuração final e montar a tabela do README.
+## Etapa atual: 12 (README final)
+Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limitações e a comparação com e sem RAG.
 
 **O que já existe:**
-- O `avaliacao/avaliar.py` e o `perguntas.jsonl`, que está congelado (veja a seção "Avaliação").
-- **A referência da etapa 10:** a 2ª rodada, com os rótulos revisados. MiniLM com 60/10, com recall@3 de 58,5% nas principais e 34,8% nas variantes (veja "Medições registradas").
-- A contagem de chunks e de tokens das 3 configurações, nos 2 modelos, também está em "Medições registradas". Dela sai a porcentagem de chunks cortados pelo limite de tokens.
-- Hoje, a ingestão das notas só é feita pelo `POST /documentos`, uma nota por vez (pelo `/docs`), e depois pelo `POST /embeddings?refazer=true`.
+- **Resultados medidos:**
+  - o recall@3 das 2 rodadas da etapa 10;
+  - a tabela das 6 combinações da etapa 11, com chunks, % cortados e os 3 recalls;
+  - a contagem de tokens da etapa 7;
+  - as medições do Docker da etapa 9.
 
-**As 6 combinações:**
-- **Modelos** (o valor de `EMBEDDING_MODELO`): `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (sem prefixo) e `intfloat/multilingual-e5-small` (com `passage: ` e `query: `, entre aspas no `.env`).
-- **Tamanhos de chunk:** 40/8, 60/10 e sem limite (`CHUNK_MAX_PALAVRAS=0`).
-- **O MiniLM com 60/10 já foi medido na etapa 10:** não precisa repetir, mas repetir serve para conferir que o processo de reindexar não muda o número.
+  Está tudo em "Medições registradas" e na seção do Docker. **Só esses números entram no README.**
+- **A comparação com e sem RAG:** o `avaliacao/baseline_sem_rag.md` e o `avaliacao/baseline_com_rag.json`, os dois com a pergunta "Por que o índice de vetores em C começa em 0?". A resposta com RAG foi gerada na etapa 6, com o MiniLM e o 60/10.
+- **Observações da geração:** etapas 6 e 7, feitas com o MiniLM e o 60/10. São observações, e não métricas.
+- **A configuração final:** e5-small sem limite, no `.env`, no `.env.example` e no banco.
 
-**O que fazer nesta etapa:**
-- **Um script para reindexar o banco** com a configuração do `.env`: reenviar as 25 notas, com o chunking do `.env`, e refazer os vetores com o modelo do `.env`. Depois, o `avaliar.py` confere que o banco bate com o `.env`.
-- **Para cada combinação:** trocar o modelo, os prefixos e o chunking no `.env`, reindexar e rodar o `avaliar.py`. Só valem as rodadas sem aviso.
-- **A tabela do README:** uma linha por combinação, com o número de chunks, a porcentagem de chunks cortados pelo limite de tokens e o recall@3 das principais e das variantes.
-- **No fim:** a escolha manual da configuração final, feita pelo usuário. O `.env` e o banco voltam para essa configuração.
+**O que o README precisa ter** (do roteiro e da seção "README" abaixo):
+- o que o projeto faz e o fluxo do RAG (ingestão, chunking, embeddings, pgvector, busca e geração), com um diagrama;
+- como rodar: Docker Compose, Ollama no Windows, `.env`, ingestão das notas e as rotas;
+- os resultados, com os acertos junto da porcentagem e a explicação da revisão dos rótulos e da amostra pequena;
+- a comparação com e sem RAG;
+- as limitações (as do modelo de 3B, as da avaliação e as do corpus);
+- como o projeto foi feito, com honestidade: "notas escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias".
 
-**Padrões sugeridos** (o usuário confirma antes de codar):
-- **`scripts/reindexar.py`,** que roda com `python -m scripts.reindexar`, sem a API. Ele chama as mesmas funções que as rotas usam: `ler_nota`, `dividir_em_chunks` e `db.salvar_documento` para cada nota, e depois `busca.gerar_embeddings_dos_chunks(refazer=True)`. Escreve no banco do `.env`, então só roda no `aed`, e mostra antes o modelo e o chunking que vai usar.
-- **A tabela** é montada a partir dos JSONs de `avaliacao/resultados/`, à mão ou com um script pequeno.
-- **Comparação justa das variantes:** a tabela mostra também o recall das principais que têm variante. Na etapa 10, as duas versões dessas 23 perguntas acertaram o mesmo número (8). Isso pode entrar no `avaliar.py` como um terceiro número.
+**A decidir antes de começar (é do usuário):**
+- **A ordem do PR dos ajustes da geração:** antes ou depois do README. Fazer antes deixa o README descrever a geração final. Fazer depois deixa o README pronto mais cedo, e ele é atualizado depois.
+- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada.
+- **O diagrama:** em Mermaid, que o GitHub desenha, ou como imagem.
+- **Os prints:** quais telas (o `/docs`, uma resposta do `POST /perguntas`, a saída do `avaliar.py`). As imagens são tiradas pelo usuário, e o Claude só indica onde elas entram.
+- **A língua do README:** só em português, ou também em inglês.
 
 **Cuidados:**
-- **Reindexar troca todo o conteúdo do banco `aed`.** Nada se perde: as notas estão no `corpus/`. Mas uma API que já estava no ar continua com o modelo e os prefixos que leu do `.env` quando subiu (o container `api` lê o `.env` ao ser criado, e a API do venv, ao iniciar). Com o banco reindexado para outro modelo, ela compara vetores de espaços diferentes, sem erro nenhum. **Pare a API durante a etapa** (`docker compose stop api` e feche o `uvicorn` do venv) e, depois de voltar para a configuração final, suba de novo (`docker compose up -d --force-recreate api`). Rode os experimentos no venv, não no container. **Nunca use `docker compose down -v`** para limpar o banco.
-- **O `.env` precisa mudar inteiro de uma vez:** o modelo, os 2 prefixos e o chunking. O e5 sem os prefixos dá um recall errado, sem erro nenhum. O `avaliar.py` avisa sobre vetores do banco de outro modelo, mas não percebe um prefixo de pergunta esquecido.
-- **RAM:** o e5-small também gera vetores de 384 dimensões, mas o uso de RAM dele ainda não foi medido. Na primeira vez, ele é baixado do Hugging Face.
-- **Amostra pequena:** são 53 perguntas principais, então 1 pergunta vale 1,9 ponto de recall (4,3 pontos nas 23 variantes). Uma diferença de 1 ou 2 perguntas entre duas combinações não permite dizer que uma é melhor. No README, mostre os acertos (por exemplo, 31 de 53) junto com a porcentagem.
-- **Não ajuste notas, perguntas, rótulos nem a busca** olhando os erros. Só o que foi medido entra no README.
-- **Observação da etapa 10, sem promessa de resultado:** com 60/10, em 10 dos 22 erros das principais (2ª rodada) a mesma seção ocupou mais de uma das 3 posições. Sem limite, cada seção é um chunk só, mas no MiniLM todos esses chunks passam dos 128 tokens.
-
-**A decidir (é do usuário):**
-- se o `avaliar.py` ganha o recall das principais que têm variante;
-- se uma pergunta que duas seções respondem passa a aceitar uma lista de seções. **Decidir isso olhando os erros da etapa 10 infla o recall.** Se mudar, todas as combinações são medidas de novo, com a mesma regra;
-- a configuração final, escolhida à mão.
-
-**Fora desta etapa:** a correção de erros de digitação (depois da etapa 11) e o PR dos ajustes da geração.
+- **Nenhum número novo sem medir.** Se faltar algum número, meça antes ou deixe o assunto fora do README.
+- **Os dois recalls da etapa 10 e a revisão dos rótulos entram com a explicação do viés.**
+- **Com 53 perguntas, uma diferença de 1 ou 2 acertos não permite dizer que uma configuração é melhor.**
 
 **Pronto quando:**
-- [ ] As 6 combinações têm um JSON em `avaliacao/resultados/`, sem aviso.
-- [ ] A tabela com chunks, % cortados e recall@3 das principais e das variantes está em "Medições registradas".
-- [ ] A configuração final foi escolhida pelo usuário, o `.env` e o banco voltaram para ela e a API foi recriada com ela.
-- [ ] `pytest` passa.
+- [ ] O README tem todas as partes acima, com os números de "Medições registradas" e nenhum outro.
+- [ ] Os comandos do README foram testados numa execução do zero.
+- [ ] O usuário revisou o texto.
 
-Ao terminar, marque a etapa 11 no roteiro e troque esta seção pela etapa 12.
+Ao terminar, marque a etapa 12 no roteiro.
 
 ## Docker (etapa 9): como usar e o que foi medido
 - **Subir tudo:** `docker compose up -d`, com o `db` e a `api` (porta 8000). **Só o banco, para usar a API no venv:** `docker compose up -d db`, ou `docker compose stop api`. As duas APIs usam a porta 8000.
@@ -174,6 +168,7 @@ Vem das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
 - Os outros 2 problemas (o detalhe errado sobre a lista encadeada e a resposta vaga sobre laços aninhados) são limitações do modelo de 3B e vão para o README. **Não edite as notas para corrigi-los.**
 - **Não troque o `qwen2.5:3b`:** a comparação com e sem RAG do README usa esse modelo.
 - Depois do ajuste, repita as mesmas perguntas e outras que não foram usadas no ajuste, e registre o que melhorou e o que não melhorou. A qualidade das respostas é avaliada só por observação, e a única métrica do projeto é o recall@3 da busca.
+- **Desde a etapa 11, a busca usa o e5 sem limite:** o LLM recebe 3 seções inteiras, cada uma com até 411 tokens, em vez de pedaços de 60 palavras. As observações das etapas 6 e 7 foram feitas com o MiniLM e o 60/10, e a geração ainda não foi testada com a configuração nova. Teste as mesmas perguntas antes de ajustar o prompt e confira o tamanho do prompt no log do Ollama (o `num_ctx` é 4096).
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
@@ -233,6 +228,37 @@ Feitas rodando o código. A medição atual do chunking é a da etapa 7, com as 
   - em 10, a mesma seção ocupou mais de uma das 3 posições, porque o 60/10 divide a seção em vários chunks.
 - **Sem resposta no corpus:** nas 3 perguntas, o chunk mais perto ficou a uma distância de 0,47 a 0,53, nas duas rodadas.
 
+**Experimentos (etapa 11): modelo de embedding × tamanho de chunk.** Rodadas em 2026-11-25, com os rótulos revisados, k=3 e as 79 perguntas. Cada combinação foi reindexada com `python -m scripts.reindexar`, passando a configuração por variáveis de ambiente, sem mudar o `.env`. Nenhuma rodada teve aviso, e a distância entre o vetor guardado e o recalculado foi 0,000000 em todas. Antes, reindexar o MiniLM com 60/10 reproduziu a 2ª rodada da etapa 10 exatamente: os mesmos acertos, os mesmos erros e as mesmas distâncias.
+
+| Modelo | Chunking | Chunks | Cortados pelo limite de tokens | Principais (53) | Variantes (23) | Principais com variante (23) |
+|---|---|---|---|---|---|---|
+| MiniLM | 40/8 | 484 | 2% | 58,5% (31) | 30,4% (7) | 34,8% (8) |
+| MiniLM | 60/10 | 324 | 31% | 58,5% (31) | 34,8% (8) | 34,8% (8) |
+| MiniLM | sem limite | 107 | 100% | 60,4% (32) | 52,2% (12) | 39,1% (9) |
+| e5-small | 40/8 | 484 | 0% | 66,0% (35) | 52,2% (12) | 47,8% (11) |
+| e5-small | 60/10 | 324 | 0% | 73,6% (39) | 65,2% (15) | 60,9% (14) |
+| e5-small | sem limite | 107 | 0% | **77,4% (41)** | **82,6% (19)** | **69,6% (16)** |
+
+- **O e5 ficou acima do MiniLM nas 3 configurações.** O pior resultado do e5 (35 de 53) tem 3 acertos a mais que o melhor do MiniLM (32 de 53).
+- **No MiniLM, as 3 configurações ficaram a no máximo 1 pergunta uma da outra** (31, 31 e 32). Pela amostra pequena, não dá para dizer que uma é melhor. Isso vale mesmo para o "sem limite", em que todos os chunks passam dos 128 tokens e o fim das seções é ignorado no vetor.
+- **No e5, o recall subiu com o tamanho do chunk:** 35, 39 e 41 de 53. Entre o 60/10 e o "sem limite", a diferença é de 2 perguntas, dentro do que a amostra não permite separar.
+- **Variantes:**
+
+  | Combinação | Pares em que só a principal acertou | Pares em que só a variante acertou |
+  |---|---|---|
+  | MiniLM 40/8 | 1 (16) | nenhum |
+  | MiniLM 60/10 | 2 (5 e 16) | 2 (1 e 35) |
+  | MiniLM sem limite | 1 (25) | 4 (1, 10, 35 e 58) |
+  | e5, nas 3 configurações | nenhum | de 1 a 3 |
+
+  Neste conjunto, o erro de digitação quase não fez a busca errar uma pergunta que a versão correta acertava. Com 23 pares, é uma observação, e não uma conclusão.
+- **Seção repetida no top 3:** foi contada nos erros das principais. Ela aparece em 10 a 14 erros com 40/8 e 60/10, e em nenhum com "sem limite", em que cada seção é um chunk só.
+- **Distâncias:** nas perguntas sem resposta, o chunk mais perto ficou a 0,46 a 0,57 no MiniLM e a 0,11 a 0,14 no e5. O e5 dá distâncias bem menores em geral, então **distâncias de modelos diferentes não se comparam**.
+- **Tempo de reindexação:** de 20 a 37 s por combinação, contando o carregamento do modelo. O e5 já estava no cache, por causa da contagem de tokens da etapa 7.
+- Os arquivos estão em `avaliacao/resultados/`. O `…_1036_…_60-10.json` é a conferência da reindexação.
+- **Configuração final, escolhida pelo usuário: e5-small sem limite.** O `.env` e o `.env.example` foram trocados para ela, e o banco `aed` foi reindexado: 25 notas e 107 chunks, com os vetores gerados em 25 s. O `avaliar.py` reproduziu o resultado da tabela, 41, 19 e 16 acertos, sem aviso (`…_1059_…_sem-limite.json`).
+- **A API do container foi recriada com `--build`** e leu a configuração nova. A primeira busca levou 37 s, porque baixou o e5 para o volume `modelos`. A segunda levou 0,5 s. Depois da primeira busca, a API usava 1,098 GiB de RAM, e o `db`, 63 MiB. A busca da API devolveu as mesmas seções que a do venv.
+
 **Corpus completo (etapa 7): 25 notas, 107 seções.**
 - **Chunks:** 484 com 40/8, 324 com 60/10 e 107 sem limite. Também medidos: 231 com 80/15, 212 com 100/15, 170 com 120/20 e 113 com 150/25. Com a parte 2, o 150/25 voltou a ser diferente de "sem limite".
 - **No banco, depois da ingestão completa:** 25 documentos e 324 chunks (60/10). São 285 chunks de 22 notas em C e 39 de 3 notas em C++, todos com vetor de 384 dimensões do MiniLM. `POST /embeddings` dos 324 chunks levou 54 s, incluindo o carregamento do modelo.
@@ -266,7 +292,7 @@ Feitas rodando o código. A medição atual do chunking é a da etapa 7, com as 
 - [x] 8. Testes e CI: pytest com fakes e GitHub Actions.
 - [x] 9. Docker: `Dockerfile` da API (torch só para CPU) e Compose completo.
 - [x] 10. Avaliação: `perguntas.jsonl` (feito manualmente) e `avaliar.py` calculando o recall@3.
-- [ ] 11. Experimentos: modelo de embedding × tamanho de chunk.
+- [x] 11. Experimentos: modelo de embedding × tamanho de chunk.
 - [ ] 12. README final (diagrama, prints, resultados, limitações, comparação com e sem RAG).
 
 ## README
