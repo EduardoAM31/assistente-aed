@@ -153,6 +153,16 @@ def calcular_recall(perguntas: list[dict], resultados_por_id: dict[int, list[dic
     }
 
 
+def principais_com_variante(principais: list[dict], variantes: list[dict]) -> list[dict]:
+    """As principais que têm variante: o grupo justo para comparar com as variantes.
+
+    O recall de todas as principais mistura perguntas que não têm variante. Na etapa
+    10, as principais com variante eram mais difíceis que a média.
+    """
+    ids = {variante["variante_de"] for variante in variantes}
+    return [pergunta for pergunta in principais if pergunta["id"] in ids]
+
+
 def resumir_resultado(resultado: dict) -> dict:
     """Só o que interessa de um chunk devolvido pela busca."""
     return {
@@ -305,9 +315,13 @@ def main() -> None:
 
     resultado_principais = calcular_recall(principais, resultados_por_id)
     resultado_variantes = calcular_recall(variantes, resultados_por_id)
+    # Os erros desse grupo já estão nos das principais: aqui só ficam os números.
+    resultado_pares = calcular_recall(principais_com_variante(principais, variantes), resultados_por_id)
+    del resultado_pares["erros"]
 
     print(f"\nrecall@{K} das principais: {formatar_recall(resultado_principais)}")
     print(f"recall@{K} das variantes com erro de digitação: {formatar_recall(resultado_variantes)}")
+    print(f"recall@{K} das principais que têm variante: {formatar_recall(resultado_pares)}")
 
     for titulo, grupo in [("principais", resultado_principais), ("variantes", resultado_variantes)]:
         if grupo["erros"]:
@@ -348,6 +362,7 @@ def main() -> None:
         "avisos": avisos,
         "principais": resultado_principais,
         "variantes": resultado_variantes,
+        "principais_com_variante": resultado_pares,
         "sem_resposta": lista_sem_resposta,
     }
     PASTA_RESULTADOS.mkdir(exist_ok=True)

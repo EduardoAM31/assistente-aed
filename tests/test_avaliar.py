@@ -14,6 +14,7 @@ from avaliacao.avaliar import (
     distancia_cosseno,
     ler_perguntas,
     nome_do_resultado,
+    principais_com_variante,
     secoes_do_corpus,
 )
 
@@ -164,6 +165,12 @@ def test_calcular_recall_conta_acertos_e_lista_os_erros():
 
 def test_calcular_recall_sem_perguntas_fica_none():
     assert calcular_recall([], {})["recall"] is None
+
+
+def test_principais_com_variante_pega_so_as_que_tem_variante():
+    principais = [principal(1), principal(2), principal(3)]
+    variantes = [{**principal(4), "variante_de": 1}, {**principal(5), "variante_de": 3}]
+    assert [p["id"] for p in principais_com_variante(principais, variantes)] == [1, 3]
 
 
 # --- funções auxiliares -------------------------------------------------------
