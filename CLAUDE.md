@@ -140,10 +140,22 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 
 **A decidir antes de começar (é do usuário):**
 - ~~A ordem do PR dos ajustes da geração~~ **Decidido: antes do README.** O PR foi feito, e o registro está na seção "Ajustes da geração".
-- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada. **Recomendado: refazer**, com a mesma pergunta, guardando o resultado num arquivo novo, sem apagar o antigo. A resposta sem RAG, de 18/11, foi gerada pelo Ollama sem prompt de sistema e sem `temperature` registrada, e a com RAG usa `temperature` 0.1 e `num_predict` 256: o README diz isso.
-- **O diagrama:** em Mermaid, que o GitHub desenha, ou como imagem.
-- **Os prints:** quais telas (o `/docs`, uma resposta do `POST /perguntas`, a saída do `avaliar.py`). As imagens são tiradas pelo usuário, e o Claude só indica onde elas entram.
-- **A língua do README:** só em português, ou também em inglês.
+- **Decidido: o baseline com RAG foi refeito,** em `avaliacao/baseline_com_rag_config_final.json`, pelo `POST /perguntas` da API do container na configuração final. A resposta é de 2026-11-25, com o prompt do commit `62c6f9d`. O arquivo antigo continua lá. A resposta está certa (`v[i]` é `*(v + i)`), mas repete a pergunta no começo.
+- **Decidido:** diagrama em Mermaid, README só em português, e 3 prints (o `/docs`, o `POST /perguntas` e o `avaliar.py`). Os lugares dos prints estão marcados no README com comentários `<!-- PRINT: ... -->`, e quem tira as imagens é o usuário.
+- **Decidido: a carga das notas no Docker** é feita com um laço de `curl` (PowerShell e Bash) que envia as notas para o `POST /documentos`. Isso porque o `.dockerignore` deixa o `corpus/` e o `scripts/` fora da imagem.
+
+**Teste do zero (2026-11-25):** feito num clone novo, com `cp .env.example .env` e só o `POSTGRES_PORT` trocado para 5434, porque a 5432 está ocupada nesta máquina. O projeto do Compose tem outro nome, então tem volumes próprios.
+- **Funcionou:**
+  - `docker compose up -d --build`. O build levou 11 s por causa do cache das camadas, então **o tempo de um build sem cache não foi medido de novo**;
+  - o laço de `curl.exe` no PowerShell, com 25 respostas `201`;
+  - o `POST /embeddings`: 107 vetores em 50 s, contando o download do e5;
+  - a pergunta pelo PowerShell, lendo a resposta como UTF-8;
+  - os comandos do Bash no Linux (WSL): o laço, os embeddings e a pergunta;
+  - a criação do `aed_teste`, o `init.sql` pelo PowerShell e o `pytest` (195 testes).
+- **Falhou e foi corrigido no README:**
+  - o `Invoke-RestMethod` do PowerShell 5.1 estraga os acentos da resposta, porque lê como Latin-1;
+  - o `curl -d` com acentos no Git Bash do Windows dá "There was an error parsing the body". O README diz que o bloco do Bash é para Linux ou macOS.
+- **Ficaram na máquina:** os volumes `aed-clone-teste_pgdata` e `aed-clone-teste_modelos` e a imagem `aed-clone-teste-api`. Apagar é decisão do usuário.
 
 **Cuidados:**
 - **Nenhum número novo sem medir.** Se faltar algum número, meça antes ou deixe o assunto fora do README.
@@ -151,10 +163,11 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 - **Com 53 perguntas, uma diferença de 1 ou 2 acertos não permite dizer que uma configuração é melhor.**
 
 **Pronto quando:**
-- [ ] O README tem todas as partes acima, com os números de "Medições registradas" e nenhum outro.
-- [ ] Os comandos do README foram testados numa execução do zero (num clone novo, com `cp .env.example .env`; na primeira busca, o e5 é baixado).
-- [ ] Cada exemplo de resposta do README diz com qual configuração foi gerado.
+- [x] O README tem todas as partes acima, com os números de "Medições registradas" e nenhum outro.
+- [x] Os comandos do README foram testados numa execução do zero (num clone novo, com `cp .env.example .env`; na primeira busca, o e5 é baixado).
+- [x] Cada exemplo de resposta do README diz com qual configuração foi gerado.
 - [ ] O usuário revisou o texto.
+- [ ] O usuário colocou os 3 prints (ou decidiu publicar sem eles).
 
 Ao terminar, marque a etapa 12 no roteiro.
 
@@ -222,7 +235,18 @@ São observações, e não métricas, feitas em 2026-11-25 com o e5 sem limite, 
 - às vezes não usa o que o trecho diz (os dois `for` e o O(n × m));
 - repete a pergunta e quase não cita o número do trecho.
 
-O tamanho da resposta e a cópia de código melhoraram com o prompt numerado.
+**Como ler estas rodadas:**
+- Cada prompt rodou uma vez por pergunta, e a variação entre execuções do mesmo prompt (o Ollama não fixa a semente) **não foi medida**. Os dois erros que não apareceram na rodada 2 (a contradição do bubble sort e o número do `malloc`) podem ser, em parte, variação, e não efeito do prompt.
+- O que se repetiu nas 3 rodadas é o que se pode afirmar: os dois `for` vagos, a citação rara do trecho e o quicksort explicado com conhecimento próprio.
+- O efeito de cada mudança (o prompt numerado e o `num_predict` 400) **não foi isolado**. Na rodada 2, nenhum exemplo de código foi copiado e nenhuma resposta foi cortada, mas isso não prova que o prompt foi a causa: a rodada 0 também não teve resposta cortada.
+- **Feito na etapa 12: a rodada 2 repetida mais 2 vezes** nas 10 perguntas, com o mesmo prompt e a mesma configuração (3 execuções no total):
+  - **3 das 10 respostas saíram idênticas nas 3 execuções:** busca binária, bubble × insertion e Dijkstra. As outras 7 mudam o texto, e as fontes foram as mesmas em todas.
+  - **Uma resposta mudou de conteúdo.** Na lista encadeada, uma das execuções voltou ao erro da etapa 7 ("usando a função `liberar` que você já conhece… garantindo que nenhum nó fique sem seu próximo nó"). As outras duas estavam certas. **A variação entre execuções existe e muda o conteúdo**, não só as palavras.
+  - **O que se repetiu nas 3 execuções:** nenhum código copiado e nenhuma resposta cortada (de 10 a 135 tokens); os dois `for` vagos; o `malloc` repetindo a pergunta; a contradição do bubble sort e o erro de número do `malloc` não apareceram.
+  - Em 2 execuções, a resposta dos dois `for` citou o trecho [2]. As outras citações não apareceram.
+- **Feito na etapa 12: as 3 perguntas "sem resposta no corpus"**, pelo `POST /perguntas`, com a configuração final:
+  - **"como ter mais de um valor em um set?"** e **"a função sort é rápida?"** responderam "Não sei responder isso com base nas notas.";
+  - **"qual a diferença de usar i++ ou ++i no for?"** foi respondida com o conhecimento próprio do modelo, e com um erro: disse que a ordem "pode alterar o comportamento do laço". No incremento do `for`, `i++` e `++i` dão o mesmo resultado. É o mesmo padrão do quicksort: o modelo inventa quando os trechos são de um assunto vizinho (o `for`).
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
