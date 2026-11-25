@@ -119,7 +119,7 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 
   Está tudo em "Medições registradas" e na seção do Docker. **Só esses números entram no README.**
 - **A comparação com e sem RAG:** o `avaliacao/baseline_sem_rag.md` e o `avaliacao/baseline_com_rag.json`, os dois com a pergunta "Por que o índice de vetores em C começa em 0?". A resposta com RAG foi gerada na etapa 6, com o MiniLM e o 60/10.
-- **Observações da geração:** etapas 6 e 7, feitas com o MiniLM e o 60/10. São observações, e não métricas.
+- **Observações da geração:** as das etapas 6 e 7, feitas com o MiniLM e o 60/10, e as da seção "Ajustes da geração", feitas com a configuração final e o prompt final. São observações, e não métricas.
 - **A configuração final:** e5-small sem limite, no `.env`, no `.env.example` e no banco.
 
 **O que o README precisa ter** (do roteiro e da seção "README" abaixo):
@@ -133,13 +133,13 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 **Limitações que o README precisa dizer** (todas vêm de números ou fatos já registrados):
 - **A configuração final foi escolhida no mesmo conjunto de 79 perguntas que a mede.** O 77,4% é o melhor de 6 combinações medidas nas mesmas perguntas, então tende a ser otimista. A vantagem do e5 sobre o MiniLM aparece nas 3 configurações, e a do "sem limite" sobre o 60/10 é de 2 perguntas.
 - **O conjunto é pequeno** (53 principais, 23 variantes e 3 sem resposta) e foi escrito por uma pessoa só. Os rótulos de 2 perguntas foram revisados depois de ver os erros.
-- **O recall mede só a busca.** A qualidade das respostas do LLM foi avaliada por observação, em poucas perguntas, e antes da troca para o e5 sem limite.
+- **O recall mede só a busca.** A qualidade das respostas do LLM foi avaliada só por observação, em poucas perguntas: 18 com a configuração final (veja "Ajustes da geração").
 - **Corpus pequeno:** 25 notas de C (e `map` e `set` em C++), escritas com auxílio de IA e revisadas à mão. As perguntas de rascunho foram escritas antes das notas, para a busca não ficar fácil com o vocabulário delas, mas a mesma pessoa escreveu as perguntas e revisou as notas.
 - **Os números de RAM, tempo e tamanho da imagem** são do Docker Desktop no Windows, numa VM de 2,84 GiB (a máquina tem 8 GB). Não valem para outra máquina.
-- **O modelo de 3B:** as limitações da seção "Resultados da geração (etapa 6)" e da "Teste manual da etapa 7".
+- **O modelo de 3B:** as limitações da seção "Ajustes da geração", que valem para a configuração final. As das seções "Resultados da geração (etapa 6)" e "Teste manual da etapa 7" são da configuração antiga.
 
 **A decidir antes de começar (é do usuário):**
-- **A ordem do PR dos ajustes da geração:** antes ou depois do README. Fazer antes deixa o README descrever a geração final. Fazer depois deixa o README pronto mais cedo, e ele é atualizado depois. **Recomendado: antes**, porque a busca mudou (o LLM agora recebe seções inteiras) e as observações das etapas 6 e 7 não valem mais para a configuração final.
+- ~~A ordem do PR dos ajustes da geração~~ **Decidido: antes do README.** O PR foi feito, e o registro está na seção "Ajustes da geração".
 - **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada. **Recomendado: refazer**, com a mesma pergunta, guardando o resultado num arquivo novo, sem apagar o antigo. A resposta sem RAG, de 18/11, foi gerada pelo Ollama sem prompt de sistema e sem `temperature` registrada, e a com RAG usa `temperature` 0.1 e `num_predict` 256: o README diz isso.
 - **O diagrama:** em Mermaid, que o GitHub desenha, ou como imagem.
 - **Os prints:** quais telas (o `/docs`, uma resposta do `POST /perguntas`, a saída do `avaliar.py`). As imagens são tiradas pelo usuário, e o Claude só indica onde elas entram.
@@ -170,14 +170,59 @@ Ao terminar, marque a etapa 12 no roteiro.
 - **Conferido na imagem:** o `.env` não está nela, o processo roda como o usuário `app` (sem root), o Python é o 3.14.10 e o torch é o `2.15.0+cpu`.
 - **CI:** o job `imagem` monta a imagem, confere que o `.env` não entra nela e que `import app.main` funciona. No PR #8, em 2 execuções, o job `imagem` levou de 106 s a 134 s (92 s a 123 s de build) e o `testes` de 85 s a 89 s (62 s a 63 s de instalação). No push na `main` depois do merge, foram 110 s e 89 s.
 
-## Pendência: ajustes da geração (PR pequeno e separado, sem misturar com outra etapa)
-Vem das 4 respostas com problema do teste manual da etapa 7 (seção abaixo):
-- **Resposta cortada pelo `num_predict`:** subir o `LLM_NUM_PREDICT` para 400 a 512 e pedir no prompt só as linhas principais do exemplo, sem `#include` e `main`, e sem copiar o trecho inteiro. Os exemplos das notas são programas completos e passam do limite de 6 linhas que o prompt pede. Opcional: um campo `cortada` na resposta da API quando `done_reason` for `length`.
-- **Falso "não sei":** dizer "não sei" só se nenhum trecho tratar do assunto, e responder com o que os trechos dizem quando eles trazem a resposta só em parte. Teste nas duas direções (perguntas fora do corpus e perguntas do corpus), com 1 ou 2 rodadas no máximo.
-- Os outros 2 problemas (o detalhe errado sobre a lista encadeada e a resposta vaga sobre laços aninhados) são limitações do modelo de 3B e vão para o README. **Não edite as notas para corrigi-los.**
-- **Não troque o `qwen2.5:3b`:** a comparação com e sem RAG do README usa esse modelo.
-- Depois do ajuste, repita as mesmas perguntas e outras que não foram usadas no ajuste, e registre o que melhorou e o que não melhorou. A qualidade das respostas é avaliada só por observação, e a única métrica do projeto é o recall@3 da busca.
-- **Desde a etapa 11, a busca usa o e5 sem limite:** o LLM recebe 3 seções inteiras, cada uma com até 411 tokens, em vez de pedaços de 60 palavras. As observações das etapas 6 e 7 foram feitas com o MiniLM e o 60/10, e a geração ainda não foi testada com a configuração nova. Teste as mesmas perguntas antes de ajustar o prompt e confira o tamanho do prompt no log do Ollama (o `num_ctx` é 4096).
+## Ajustes da geração (depois da etapa 11): o que foi feito e observado
+São observações, e não métricas, feitas em 2026-11-25 com o e5 sem limite, k=3, o `qwen2.5:3b` na GPU e `temperature` 0.1. Usaram as 10 perguntas do teste manual da etapa 7, e depois 8 perguntas novas, que não foram usadas no ajuste. O script de teste chama a busca e o Ollama com o mesmo prompt e as mesmas opções da API, e guarda também o `done_reason` e os tokens.
+
+**O que mudou:**
+- **`LLM_NUM_PREDICT`:** de 256 para 400, no `.env` e no `.env.example`.
+- **O prompt (`app/geracao/base.py`):** as regras agora vão numeradas. As regras novas:
+  - começar direto pela resposta;
+  - código é opcional e, se houver, só as linhas principais, sem `#include` nem `main`, e nunca um trecho inteiro;
+  - responder com o que o trecho diz quando ele trata do assunto, mesmo que responda só em parte;
+  - "não sei" só quando nenhum trecho tratar do assunto.
+
+**Rodada 0, com a configuração nova e o prompt antigo (antes de ajustar), nas 10 perguntas da etapa 7:**
+- Nenhuma resposta foi cortada. O prompt ficou entre 847 e 1.075 tokens, contra 471 a 598 com o MiniLM e o 60/10, ainda bem abaixo do `num_ctx` 4096.
+- Os dois problemas que motivaram a pendência não se repetiram. O bubble × insertion respondeu, sem o falso "não sei". Os números repetidos em C++ não foram cortados (79 tokens).
+- **Problemas:**
+  - no bubble × insertion, o modelo disse que o insertion é mais rápido em vetores quase ordenados "enquanto o bubble sort é mais eficiente em vetores já quase ordenados", o que é uma contradição inventada;
+  - na lista encadeada, colocou `cabeca = NULL` dentro da função `liberar`, que não tem efeito em quem chamou. A nota manda fazer isso no código que chamou;
+  - os dois `for` continuaram vagos, sem o O(n × m) que a nota traz;
+  - 2 respostas repetiram a pergunta, e o exemplo da lista teve 9 linhas.
+
+**Rodada 1** (regras novas, ainda num parágrafo):
+- **Melhorou:** a lista encadeada passou a dizer `lista = NULL` "no código que chamou".
+- **Piorou:**
+  - o `set` copiou o exemplo inteiro, com `#include` e `main` (249 tokens);
+  - o `malloc(10)` errou um número: disse que `malloc(10 * sizeof(int))` "dá espaço para 2 inteiros".
+- **Continuou igual:** a contradição do bubble sort e as 2 perguntas repetidas.
+
+**Rodada 2** (as mesmas regras, numeradas), **que é o prompt que ficou:**
+- **Nas 10 perguntas da etapa 7:**
+  - nenhum exemplo de código foi copiado;
+  - a contradição do bubble sort e o erro de número do `malloc` não apareceram;
+  - o Dijkstra continuou com "Não sei responder isso com base nas notas.";
+  - as respostas usaram de 10 a 131 tokens, todas com `done_reason: "stop"`.
+- **Continuam:**
+  - os dois `for` ficaram vagos de novo, com uma explicação confusa sobre o `strlen`;
+  - 1 resposta repetiu a pergunta (`malloc`);
+  - a lista encadeada diz "setar a cabeça da lista para NULL", sem dizer onde;
+  - o modelo quase não cita o trecho: só 1 citação ([2]) nas 10 respostas;
+  - aparece termo em inglês ("stack overflow").
+
+**Perguntas novas, com o prompt da rodada 2:**
+- **6 perguntas do corpus** (`=` e `==`, `strcmp`, fila circular, protótipo, vetor como parâmetro, vetor com lixo): as 6 respostas estão certas e curtas. Duas têm problemas menores:
+  - a da fila circular diz "mantendo todas as posições ocupadas", o que é impreciso;
+  - a do lixo começa repetindo a pergunta.
+- **"O que é uma árvore AVL?"** (fora do corpus): "Não sei responder isso com base nas notas.".
+- **"Como funciona o quicksort?"** (fora do corpus): **o modelo explicou o quicksort com o conhecimento próprio**, sem que nenhum dos 3 trechos recebidos o explicasse. Com o prompt antigo, a mesma pergunta também inventou, e pior: um código de 26 linhas, com 312 tokens, que teria sido cortado com o `num_predict` 256. Isso é limitação do modelo quando os trechos são de um assunto vizinho (ordenação), e não efeito do ajuste.
+
+**Para o README (limitações do modelo de 3B, sem editar as notas):**
+- inventa quando os trechos são de um assunto vizinho (quicksort);
+- às vezes não usa o que o trecho diz (os dois `for` e o O(n × m));
+- repete a pergunta e quase não cita o número do trecho.
+
+O tamanho da resposta e a cópia de código melhoraram com o prompt numerado.
 
 ## Teste manual da etapa 7
 Foram 10 perguntas escolhidas à mão, sem consultar a pasta `avaliacao/`, com as 25 notas no banco (MiniLM, 60/10, k=3, `qwen2.5:3b` na GPU). São observações, e não métricas: a medida da busca é o recall@3 da etapa 10.
