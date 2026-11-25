@@ -1,7 +1,7 @@
 {"id": 1, "pergunta": "Quando que eu uso else ou else if?", "nota": "if-else.md", "secao": "Como usar else e else if em C"}
 {"id": 2, "pergunta": "quando q eu uso else ou else if?", "nota": "if-else.md", "secao": "Como usar else e else if em C", "variante_de": 1}
 {"id": 3, "pergunta": "o que é && e || no if?", "nota": "if-else.md", "secao": "Como combinar condições no if em C com && e ||"}
-{"id": 4, "pergunta": "quando que eu uso o switch?", "nota": "switch-case.md", "secao": "Como funciona o switch em C"}
+{"id": 4, "pergunta": "quando que eu uso o switch?", "nota": "switch-case.md", "secao": "Quando usar switch ou if-else em C"}
 {"id": 5, "pergunta": "Por que o último case eu uso break?", "nota": "switch-case.md", "secao": "Por que o break é necessário no switch em C"}
 {"id": 6, "pergunta": "porque o ultimo case eu uso break?", "nota": "switch-case.md", "secao": "Por que o break é necessário no switch em C", "variante_de": 5}
 {"id": 7, "pergunta": "Por que o for começa no 0?", "nota": "laco-for.md", "secao": "As três partes do laço for em C"}
@@ -75,5 +75,5 @@
 {"id": 75, "pergunta": "porque minha função não esta parando?", "nota": "recursao.md", "secao": "O caso base da recursão em C e o que acontece sem ele", "variante_de": 74}
 {"id": 76, "pergunta": "O que é complexidade?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos"}
 {"id": 77, "pergunta": "o q é complexidade?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos", "variante_de": 76}
-{"id": 78, "pergunta": "o que significa dizer que um algoritmo tem complexidade O(n)?", "nota": "complexidade-big-o.md", "secao": "Exemplos de O(1), O(n) e O(n²) em C"}
+{"id": 78, "pergunta": "o que significa dizer que um algoritmo tem complexidade O(n)?", "nota": "complexidade-big-o.md", "secao": "O que é a notação Big-O na análise de algoritmos"}
 {"id": 79, "pergunta": "por que um algoritmo O(log n) costuma ser mais rápido que um O(n)?", "nota": "complexidade-big-o.md", "secao": "O(log n): por que a busca binária é tão rápida"}
