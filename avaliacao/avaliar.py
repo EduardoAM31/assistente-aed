@@ -354,7 +354,10 @@ def main() -> None:
     arquivo = PASTA_RESULTADOS / nome_do_resultado(
         agora, settings.embedding_modelo, settings.chunk_max_palavras, settings.chunk_overlap_palavras
     )
-    arquivo.write_text(json.dumps(rodada, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # newline="\n": no Windows, o write_text trocaria cada \n por \r\n.
+    arquivo.write_text(
+        json.dumps(rodada, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
     print(f"\nResultado gravado em {arquivo.relative_to(PASTA_AVALIACAO.parent)}")
 
 
