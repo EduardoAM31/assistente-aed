@@ -240,6 +240,24 @@ def test_avaliar_nao_avisa_quando_banco_bate_com_o_env(cliente, fakes, tmp_path,
     assert avaliar.conferir_banco(settings, db, embeddings, lambda: fakes["modelo"]) == []
 
 
+def test_reindexar_substitui_as_notas_e_refaz_os_vetores(cliente, fakes, tmp_path, monkeypatch):
+    from app import busca, db
+    from scripts import reindexar
+
+    # Uma versão antiga da nota no banco, com vetor: o reindexar precisa trocar tudo.
+    enviar(cliente, "pilha.md", NOTA_FILA.replace("Fila de teste", "Pilha antiga"))
+    cliente.post("/embeddings")
+    (tmp_path / "pilha.md").write_text(NOTA_PILHA, encoding="utf-8")
+    (tmp_path / "fila.md").write_text(NOTA_FILA, encoding="utf-8")
+
+    assert reindexar.reenviar_notas(tmp_path) == (2, 3)
+    assert db.contar_chunks() == {"total": 3, "com_vetor": 0}  # chunks novos, ainda sem vetor
+    assert [d["titulo"] for d in db.listar_documentos()] == ["Fila de teste", "Pilha de teste"]
+
+    assert busca.gerar_embeddings_dos_chunks(refazer=True) == 3
+    assert db.contar_chunks() == {"total": 3, "com_vetor": 3}
+
+
 def test_avaliar_avisa_chunks_a_mais_e_vetores_de_outro_modelo(cliente, tmp_path, monkeypatch):
     from app import db, embeddings
     from app.config import settings
