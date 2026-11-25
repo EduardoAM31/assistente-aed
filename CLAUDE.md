@@ -99,7 +99,7 @@ docker-compose.yml, Dockerfile, .dockerignore, requirements.txt, .env.example, .
   - Grava um JSON em `avaliacao/resultados/` (versionado). O nome do arquivo tem a data, o modelo e o chunking.
   - **O banco não guarda com qual modelo nem com qual chunking os vetores foram gerados.** Por isso, o `avaliar.py` avisa quando o número de chunks do banco não bate com o que o chunking do `.env` gera para o corpus, e quando o vetor guardado de 5 chunks fica a mais de 0,01 do vetor recalculado com o modelo do `.env`. **Rodada com aviso não vale como medição.**
   - **Os dois recalls não medem o mesmo grupo de perguntas.** O das variantes vem só das 23 perguntas que têm variante. Para medir o efeito do erro de digitação, compare cada variante com a sua principal (veja "Medições registradas").
-- **Correção de erros de digitação** (corrigir as palavras da pergunta pela similaridade com o vocabulário do corpus): só depois da etapa 11. O "antes" é o recall das variantes da etapa 10.
+- **Correção de erros de digitação** (corrigir as palavras da pergunta pela similaridade com o vocabulário do corpus): era a ideia para depois da etapa 11. **Com o e5 sem limite, nenhuma variante errou uma pergunta que a principal acertava** (23 pares: 16 acertam nas duas versões, 4 erram nas duas e 3 só a variante acerta), então este conjunto não consegue mostrar ganho da correção. Só vale implementar se o usuário escrever outro conjunto de perguntas com erro de digitação, antes de rodar a busca nelas. Senão, o README registra que, neste conjunto, a busca com o e5 não foi prejudicada pelos erros de digitação.
 
 ## Estilo das respostas do assistente
 As respostas devem ser **curtas e diretas**, para iniciantes. Para isso:
@@ -130,9 +130,17 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 - as limitações (as do modelo de 3B, as da avaliação e as do corpus);
 - como o projeto foi feito, com honestidade: "notas escritas com auxílio de IA e revisadas manualmente, a partir das dúvidas recorrentes das monitorias".
 
+**Limitações que o README precisa dizer** (todas vêm de números ou fatos já registrados):
+- **A configuração final foi escolhida no mesmo conjunto de 79 perguntas que a mede.** O 77,4% é o melhor de 6 combinações medidas nas mesmas perguntas, então tende a ser otimista. A vantagem do e5 sobre o MiniLM aparece nas 3 configurações, e a do "sem limite" sobre o 60/10 é de 2 perguntas.
+- **O conjunto é pequeno** (53 principais, 23 variantes e 3 sem resposta) e foi escrito por uma pessoa só. Os rótulos de 2 perguntas foram revisados depois de ver os erros.
+- **O recall mede só a busca.** A qualidade das respostas do LLM foi avaliada por observação, em poucas perguntas, e antes da troca para o e5 sem limite.
+- **Corpus pequeno:** 25 notas de C (e `map` e `set` em C++), escritas com auxílio de IA e revisadas à mão. As perguntas de rascunho foram escritas antes das notas, para a busca não ficar fácil com o vocabulário delas, mas a mesma pessoa escreveu as perguntas e revisou as notas.
+- **Os números de RAM, tempo e tamanho da imagem** são do Docker Desktop no Windows, numa VM de 2,84 GiB (a máquina tem 8 GB). Não valem para outra máquina.
+- **O modelo de 3B:** as limitações da seção "Resultados da geração (etapa 6)" e da "Teste manual da etapa 7".
+
 **A decidir antes de começar (é do usuário):**
-- **A ordem do PR dos ajustes da geração:** antes ou depois do README. Fazer antes deixa o README descrever a geração final. Fazer depois deixa o README pronto mais cedo, e ele é atualizado depois.
-- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada.
+- **A ordem do PR dos ajustes da geração:** antes ou depois do README. Fazer antes deixa o README descrever a geração final. Fazer depois deixa o README pronto mais cedo, e ele é atualizado depois. **Recomendado: antes**, porque a busca mudou (o LLM agora recebe seções inteiras) e as observações das etapas 6 e 7 não valem mais para a configuração final.
+- **Refazer a resposta com RAG do baseline com a configuração final?** A de hoje é do MiniLM com 60/10. Se não refizer, o README precisa dizer com qual configuração ela foi gerada. **Recomendado: refazer**, com a mesma pergunta, guardando o resultado num arquivo novo, sem apagar o antigo. A resposta sem RAG, de 18/11, foi gerada pelo Ollama sem prompt de sistema e sem `temperature` registrada, e a com RAG usa `temperature` 0.1 e `num_predict` 256: o README diz isso.
 - **O diagrama:** em Mermaid, que o GitHub desenha, ou como imagem.
 - **Os prints:** quais telas (o `/docs`, uma resposta do `POST /perguntas`, a saída do `avaliar.py`). As imagens são tiradas pelo usuário, e o Claude só indica onde elas entram.
 - **A língua do README:** só em português, ou também em inglês.
@@ -144,7 +152,8 @@ Objetivo (do roteiro): o README final, com diagrama, prints, resultados, limita�
 
 **Pronto quando:**
 - [ ] O README tem todas as partes acima, com os números de "Medições registradas" e nenhum outro.
-- [ ] Os comandos do README foram testados numa execução do zero.
+- [ ] Os comandos do README foram testados numa execução do zero (num clone novo, com `cp .env.example .env`; na primeira busca, o e5 é baixado).
+- [ ] Cada exemplo de resposta do README diz com qual configuração foi gerado.
 - [ ] O usuário revisou o texto.
 
 Ao terminar, marque a etapa 12 no roteiro.
