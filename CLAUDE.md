@@ -117,7 +117,7 @@ Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embeddi
 - Hoje, a ingestão das notas só é feita pelo `POST /documentos`, uma nota por vez (pelo `/docs`), e depois pelo `POST /embeddings?refazer=true`.
 
 **As 6 combinações:**
-- **Modelos:** `paraphrase-multilingual-MiniLM-L12-v2` (sem prefixo) e `multilingual-e5-small` (com `passage: ` e `query: `).
+- **Modelos** (o valor de `EMBEDDING_MODELO`): `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (sem prefixo) e `intfloat/multilingual-e5-small` (com `passage: ` e `query: `, entre aspas no `.env`).
 - **Tamanhos de chunk:** 40/8, 60/10 e sem limite (`CHUNK_MAX_PALAVRAS=0`).
 - **O MiniLM com 60/10 já foi medido na etapa 10:** não precisa repetir, mas repetir serve para conferir que o processo de reindexar não muda o número.
 
@@ -133,9 +133,10 @@ Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embeddi
 - **Comparação justa das variantes:** a tabela mostra também o recall das principais que têm variante. Na etapa 10, as duas versões dessas 23 perguntas acertaram o mesmo número (8). Isso pode entrar no `avaliar.py` como um terceiro número.
 
 **Cuidados:**
-- **Reindexar troca todo o conteúdo do banco `aed`.** Nada se perde: as notas estão no `corpus/`. Mas a API passa a responder com a configuração da última reindexação. **Nunca use `docker compose down -v`** para limpar o banco.
+- **Reindexar troca todo o conteúdo do banco `aed`.** Nada se perde: as notas estão no `corpus/`. Mas uma API que já estava no ar continua com o modelo e os prefixos que leu do `.env` quando subiu (o container `api` lê o `.env` ao ser criado, e a API do venv, ao iniciar). Com o banco reindexado para outro modelo, ela compara vetores de espaços diferentes, sem erro nenhum. **Pare a API durante a etapa** (`docker compose stop api` e feche o `uvicorn` do venv) e, depois de voltar para a configuração final, suba de novo (`docker compose up -d --force-recreate api`). Rode os experimentos no venv, não no container. **Nunca use `docker compose down -v`** para limpar o banco.
 - **O `.env` precisa mudar inteiro de uma vez:** o modelo, os 2 prefixos e o chunking. O e5 sem os prefixos dá um recall errado, sem erro nenhum. O `avaliar.py` avisa sobre vetores do banco de outro modelo, mas não percebe um prefixo de pergunta esquecido.
 - **RAM:** o e5-small também gera vetores de 384 dimensões, mas o uso de RAM dele ainda não foi medido. Na primeira vez, ele é baixado do Hugging Face.
+- **Amostra pequena:** são 53 perguntas principais, então 1 pergunta vale 1,9 ponto de recall (4,3 pontos nas 23 variantes). Uma diferença de 1 ou 2 perguntas entre duas combinações não permite dizer que uma é melhor. No README, mostre os acertos (por exemplo, 31 de 53) junto com a porcentagem.
 - **Não ajuste notas, perguntas, rótulos nem a busca** olhando os erros. Só o que foi medido entra no README.
 - **Observação da etapa 10, sem promessa de resultado:** com 60/10, em 10 dos 22 erros das principais (2ª rodada) a mesma seção ocupou mais de uma das 3 posições. Sem limite, cada seção é um chunk só, mas no MiniLM todos esses chunks passam dos 128 tokens.
 
@@ -149,7 +150,7 @@ Objetivo (do roteiro): medir o recall@3 das 6 combinações de modelo de embeddi
 **Pronto quando:**
 - [ ] As 6 combinações têm um JSON em `avaliacao/resultados/`, sem aviso.
 - [ ] A tabela com chunks, % cortados e recall@3 das principais e das variantes está em "Medições registradas".
-- [ ] A configuração final foi escolhida pelo usuário, e o `.env` e o banco voltaram para ela.
+- [ ] A configuração final foi escolhida pelo usuário, o `.env` e o banco voltaram para ela e a API foi recriada com ela.
 - [ ] `pytest` passa.
 
 Ao terminar, marque a etapa 11 no roteiro e troque esta seção pela etapa 12.
